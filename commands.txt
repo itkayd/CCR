@@ -1,0 +1,24 @@
+to install nod in project
+
+npm i --legacy-peer-deps
+--------------------------
+to run project 
+
+npm run install
+--------------------------
+
+git commands 
+
+in the frist time
+git remote add origin link
+--------------------------
+in the same time 
+--------------------------
+git add . 
+
+git commit -m "ur commit"
+
+git checkout -b ahmed-ayman
+
+git push origin ahmed-ayman -f
+--------------------------
