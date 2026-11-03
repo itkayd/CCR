@@ -1,0 +1,35 @@
+@import "tailwindcss";
+@source "../public/index.html";
+@source "../public/app.js";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+:root {
+  --series-in: #1baf7a;
+  --series-out: #eb6834;
+  --series-saved: #2a78d6;
+  --chart-grid: rgba(11, 11, 11, 0.08);
+  --chart-text: #52514e;
+  color-scheme: light;
+}
+.dark {
+  --series-in: #199e70;
+  --series-out: #d95926;
+  --series-saved: #3987e5;
+  --chart-grid: rgba(240, 239, 236, 0.1);
+  --chart-text: #c3c2b7;
+  color-scheme: dark;
+}
+
+html { -webkit-tap-highlight-color: transparent; scroll-padding-top: 4rem; }
+body { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); }
+.tnum { font-variant-numeric: tabular-nums; }
+.sheet-enter { animation: sheetUp .18s ease-out; }
+@keyframes sheetUp { from { transform: translateY(24px); opacity: 0 } to { transform: none; opacity: 1 } }
+.toast-enter { animation: toastIn .2s ease-out; }
+@keyframes toastIn { from { transform: translateY(8px); opacity: 0 } to { transform: none; opacity: 1 } }
+input, select, textarea { font-size: 16px; } /* stops iOS zoom on focus */
