@@ -48,6 +48,26 @@
   function byDate(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; }
 
   // ---------- Seed data ----------
+  var GOAL_COLORS = [
+    ['blue', '#2a78d6'], ['orange', '#eb6834'], ['aqua', '#1baf7a'], ['yellow', '#eda100'],
+    ['magenta', '#e87ba4'], ['green', '#008300'], ['violet', '#6250d6'], ['red', '#e34948']
+  ];
+  function goalColor(name) { var c = GOAL_COLORS.find(function (x) { return x[0] === name; }); return c ? c[1] : GOAL_COLORS[0][1]; }
+
+  function seedGoals() {
+    function goal(o) { return Object.assign({ id: uid(), type: 'save', target: null, deadline: null, priority: 'med', emoji: '🎯', color: 'blue', notes: '', legalRisk: false, status: 'active', order: 0, completedAt: null, createdAt: todayISO() }, o); }
+    var g = {
+      pcn: goal({ name: 'PCN debt', type: 'payoff', target: 470, deadline: '2026-11-04', priority: 'high', emoji: '🚨', color: 'red', notes: 'CCJ risk. £510 total, £40 already paid.', legalRisk: true }),
+      zable: goal({ name: 'Zable', type: 'payoff', target: 220, deadline: '2026-11-04', priority: 'high', emoji: '💳', color: 'orange' }),
+      family: goal({ name: 'Family', target: 350, deadline: '2026-11-08', priority: 'high', emoji: '👪', color: 'magenta' }),
+      cscs: goal({ name: 'CSCS card', target: null, deadline: '2026-11-28', priority: 'med', emoji: '🦺', color: 'yellow', notes: 'Cost TBC' }),
+      china: goal({ name: 'China trip', target: 1175, deadline: '2026-12-02', priority: 'med', emoji: '✈️', color: 'blue', notes: 'Flight £475 + spending £700' }),
+      moving: goal({ name: 'Moving out', target: null, deadline: null, priority: 'low', emoji: '🏠', color: 'green', status: 'paused' })
+    };
+    ['pcn', 'zable', 'family', 'cscs', 'china', 'moving'].forEach(function (k, i) { g[k].order = i; });
+    return g;
+  }
+
   function seed() {
     var days = [];
     function day(date, rate, status, note) { days.push({ id: uid(), date: date, rate: rate, status: status, note: note || '' }); }
@@ -63,19 +83,20 @@
     ['2026-11-05', '2026-11-06', '2026-11-07'].forEach(function (x) { day(x, 100, 'scheduled'); });
     for (var x = '2026-11-09'; x <= '2026-11-28'; x = addDays(x, 1)) { if (dow(x) !== 0) day(x, 100, 'scheduled'); }
 
+    var g = seedGoals();
     var diversity = { id: uid(), date: '2026-11-04', source: 'Diversity', amount: 690, status: 'expected', note: 'Final salary' };
     var moneyIn = [
       { id: uid(), date: '2026-10-31', source: 'Job', amount: 100, status: 'received', note: '' },
       { id: uid(), date: '2026-11-02', source: 'Job', amount: 200, status: 'received', note: '' },
       diversity
     ];
-    function out(o) { return Object.assign({ id: uid(), status: 'planned', priority: false, china: false, note: '', dateLabel: '' }, o); }
-    var pcn = out({ date: '2026-11-04', category: 'PCN debt', amount: 470, priority: true, note: '£510 total, £40 already paid. CCJ risk.' });
-    var zable = out({ date: '2026-11-04', category: 'Zable', amount: 220 });
-    var family = out({ date: '2026-11-07', dateLabel: '7/8 Nov', category: 'Family', amount: 350 });
-    var flight = out({ date: '2026-11-14', dateLabel: '14/15 Nov', category: 'China flight', amount: 475, china: true });
-    var spend = out({ date: '2026-12-02', category: 'China spending money', amount: 700, china: true, note: 'Needed by 2 Dec' });
-    var cscs = out({ date: '2026-11-21', dateLabel: 'Late Nov', category: 'CSCS card', amount: null, note: 'Cost TBC' });
+    function out(o) { return Object.assign({ id: uid(), status: 'planned', priority: false, goalId: null, note: '', dateLabel: '' }, o); }
+    var pcn = out({ date: '2026-11-04', category: 'PCN debt', amount: 470, goalId: g.pcn.id, note: 'CCJ risk' });
+    var zable = out({ date: '2026-11-04', category: 'Zable', amount: 220, goalId: g.zable.id });
+    var family = out({ date: '2026-11-07', dateLabel: '7/8 Nov', category: 'Family', amount: 350, goalId: g.family.id });
+    var flight = out({ date: '2026-11-14', dateLabel: '14/15 Nov', category: 'China flight', amount: 475, goalId: g.china.id });
+    var spend = out({ date: '2026-12-02', category: 'China spending money', amount: 700, goalId: g.china.id, note: 'Needed by 2 Dec' });
+    var cscs = out({ date: '2026-11-21', dateLabel: 'Late Nov', category: 'CSCS card', amount: null, goalId: g.cscs.id, note: 'Cost TBC' });
     var moneyOut = [
       out({ date: '2026-10-31', category: 'Loan fees', amount: 100, status: 'paid' }),
       out({ date: '2026-11-02', category: 'Spending', amount: 20, status: 'paid' }),
@@ -89,13 +110,55 @@
       { id: uid(), date: '2026-11-28', label: '28/29 Nov', amount: 600, source: 'Job', items: [] }
     ];
     return {
-      schema: 1,
-      settings: { target: 1175, tripDate: '2026-12-02', workUntil: '2026-11-29', defaultRate: 100, adjust: 0 },
-      days: days, moneyIn: moneyIn, moneyOut: moneyOut, plan: plan
+      schema: 2,
+      settings: { workUntil: '2026-11-29', defaultRate: 100, adjust: 0 },
+      days: days, moneyIn: moneyIn, moneyOut: moneyOut, plan: plan,
+      goals: Object.keys(g).map(function (k) { return g[k]; }),
+      allocations: []
     };
   }
 
-  // ---------- Maths ----------
+  // ---------- Goal maths ----------
+  var PRI = { high: 0, med: 1, low: 2 };
+  var PRI_LABEL = { high: 'High', med: 'Med', low: 'Low' };
+  function goalById(id) { return S.goals.find(function (g) { return g.id === id; }); }
+  function sortGoals(list) {
+    return list.slice().sort(function (a, b) { return (PRI[a.priority] - PRI[b.priority]) || (a.order - b.order); });
+  }
+  function activeGoals(s) { return sortGoals((s || S).goals.filter(function (g) { return g.status === 'active'; })); }
+  function allocatedTo(s, gid) { return sum(s.allocations.filter(function (a) { return a.goalId === gid; }), function (a) { return a.amount; }); }
+  function spentOn(s, gid, exceptOutId) {
+    return sum(s.moneyOut.filter(function (o) { return o.goalId === gid && o.status === 'paid' && o.id !== exceptOutId; }), function (o) { return o.amount; });
+  }
+  function heldIn(s, gid) { return allocatedTo(s, gid) - spentOn(s, gid); }
+
+  // When a goal-linked bill is paid, any part not already set aside for that goal is
+  // taken from unallocated savings automatically, so goal progress stays right.
+  function syncAutoAlloc(o) {
+    S.allocations = S.allocations.filter(function (a) { return a.outId !== o.id; });
+    if (o.status !== 'paid' || !o.goalId || !o.amount || !goalById(o.goalId)) return;
+    var held = allocatedTo(S, o.goalId) - spentOn(S, o.goalId, o.id);
+    var short = Math.round((o.amount - Math.max(0, held)) * 100) / 100;
+    if (short > 0) S.allocations.push({ id: uid(), date: o.date, goalId: o.goalId, amount: short, outId: o.id, kind: 'auto', note: 'Paid from savings' });
+  }
+
+  function projectedBuckets(s, c) {
+    // Money expected to be available, by the date it arrives.
+    var t = c.today, st = s.settings, tomorrow = addDays(t, 1), b = {};
+    function add(dt, v) { if (v) b[dt] = (b[dt] || 0) + v; }
+    add(t, c.unallocated);
+    s.moneyIn.forEach(function (x) { if (x.status === 'expected') add(x.date > t ? x.date : t, x.amount); });
+    s.days.forEach(function (x) {
+      var future = x.status === 'scheduled' && x.date >= t && x.date <= st.workUntil;
+      if (x.status === 'unpaid' || future) {
+        var pay = nextSaturday(x.date > t ? x.date : t);
+        if (pay < t) pay = tomorrow;
+        add(pay, x.rate);
+      }
+    });
+    return Object.keys(b).sort().map(function (k) { return { date: k, amount: b[k] }; });
+  }
+
   function calc(s) {
     var t = todayISO(), st = s.settings;
     var unpaidDays = s.days.filter(function (x) { return x.status === 'unpaid'; });
@@ -104,32 +167,82 @@
     var expectedIn = sum(s.moneyIn.filter(function (x) { return x.status === 'expected'; }), function (x) { return x.amount; });
     var paidOut = sum(s.moneyOut.filter(function (x) { return x.status === 'paid'; }), function (x) { return x.amount; });
     var planned = s.moneyOut.filter(function (x) { return x.status === 'planned'; });
-    var remainingCosts = sum(planned, function (x) { return x.amount; });
-    var tbc = planned.filter(function (x) { return x.amount == null; });
+    var plannedUnlinked = planned.filter(function (x) { return !x.goalId || !s.goals.some(function (g) { return g.id === x.goalId && (g.status === 'active' || g.status === 'paused'); }); });
     var saved = receivedIn - paidOut + (Number(st.adjust) || 0);
-    var chinaPaid = sum(s.moneyOut.filter(function (x) { return x.status === 'paid' && x.china; }), function (x) { return x.amount; });
-    var chinaFund = saved + chinaPaid;
     var futureSched = s.days.filter(function (x) { return x.status === 'scheduled' && x.date >= t && x.date <= st.workUntil; });
     var pastSched = s.days.filter(function (x) { return x.status === 'scheduled' && x.date < t; });
     var schedValue = sum(futureSched, function (x) { return x.rate; });
-    var projection = unpaid + schedValue;
-    var projectedFunds = saved + expectedIn + projection;
-    var gap = projectedFunds - remainingCosts;
-    return {
+
+    // Per-goal figures
+    var gs = {};
+    s.goals.forEach(function (g) {
+      var allocated = allocatedTo(s, g.id), spent = spentOn(s, g.id), held = allocated - spent;
+      var target = g.target == null ? null : Number(g.target);
+      var progress = allocated;
+      var left = target == null ? null : Math.max(0, Math.round((target - progress) * 100) / 100);
+      var daysLeft = g.deadline ? diffDays(g.deadline, t) : null;
+      var perWeek = null;
+      if (left != null && left > 0 && daysLeft != null && daysLeft >= 0) perWeek = left / Math.max(1, daysLeft / 7);
+      var overdue = daysLeft != null && daysLeft < 0 && (left == null || left > 0);
+      gs[g.id] = {
+        allocated: allocated, spent: spent, held: held, progress: progress, target: target, left: left, daysLeft: daysLeft,
+        perWeek: perWeek, overdue: overdue,
+        pct: target ? Math.max(0, Math.min(100, progress / target * 100)) : 0,
+        flag: g.status === 'active' && g.type === 'payoff' && (left == null || left > 0) && (overdue || g.legalRisk)
+      };
+    });
+    var heldTotal = sum(s.goals, function (g) { return Math.max(0, gs[g.id].held); });
+    var unallocated = Math.round((saved - heldTotal) * 100) / 100;
+
+    var c = {
       today: t, unpaid: unpaid, unpaidCount: unpaidDays.length, receivedIn: receivedIn, expectedIn: expectedIn,
-      paidOut: paidOut, remainingCosts: remainingCosts, tbc: tbc, saved: saved, chinaPaid: chinaPaid,
-      chinaFund: chinaFund, target: Number(st.target) || 0,
-      chinaPct: st.target > 0 ? Math.max(0, Math.min(100, (chinaFund / st.target) * 100)) : 0,
-      daysLeft: diffDays(st.tripDate, t), futureSched: futureSched, pastSched: pastSched,
-      schedValue: schedValue, projection: projection, projectedFunds: projectedFunds, gap: gap, onTrack: gap >= 0
+      paidOut: paidOut, saved: saved, unallocated: unallocated, heldTotal: heldTotal, futureSched: futureSched, pastSched: pastSched,
+      schedValue: schedValue, projection: unpaid + schedValue, plannedUnlinked: plannedUnlinked, goals: gs
     };
+
+    // Priority waterfall: each goal (in priority order) takes the earliest money that
+    // arrives before its deadline. Bills not tied to a goal are paid first.
+    var buckets = projectedBuckets(s, c).map(function (x) { return { date: x.date, amount: x.amount }; });
+    var debt = 0; // negative balances (e.g. over-allocated) are paid from the next money in
+    buckets.forEach(function (bk) { if (bk.amount < 0) { debt += -bk.amount; bk.amount = 0; } else if (debt > 0) { var u = Math.min(debt, bk.amount); bk.amount -= u; debt -= u; } });
+    function take(need, by) {
+      var got = 0;
+      for (var i = 0; i < buckets.length && got < need - 0.001; i++) {
+        if (by && buckets[i].date > by) break;
+        var u = Math.min(need - got, buckets[i].amount);
+        buckets[i].amount -= u; got += u;
+      }
+      return got;
+    }
+    var extraCosts = sum(plannedUnlinked, function (x) { return x.amount; });
+    plannedUnlinked.slice().sort(byDate).forEach(function (x) { if (x.amount) take(x.amount, null); });
+    var behind = [], need = 0;
+    activeGoals(s).forEach(function (g) {
+      var x = gs[g.id];
+      if (x.left == null) { x.status = 'tbc'; return; }
+      if (x.left <= 0) { x.status = 'funded'; return; }
+      need += x.left;
+      var got = take(x.left, g.deadline && g.deadline >= t ? g.deadline : (g.deadline ? t : null));
+      x.covered = got; x.shortfall = Math.max(0, x.left - got);
+      x.status = x.overdue ? 'overdue' : (x.shortfall < 0.01 ? 'ontrack' : 'behind');
+      if (x.status !== 'ontrack') behind.push(g);
+    });
+    s.goals.forEach(function (g) { if (g.status !== 'active') gs[g.id].status = g.status; });
+    var funds = c.unallocated + expectedIn + c.projection;
+    c.funds = funds; c.need = need; c.extraCosts = extraCosts;
+    c.gap = funds - need - extraCosts;
+    c.behind = behind;
+    c.onTrack = behind.length === 0 && c.gap >= 0;
+    c.tbc = activeGoals(s).filter(function (g) { return gs[g.id].left == null; });
+    return c;
   }
 
   function chartSeries(s) {
     var t = todayISO(), st = s.settings;
     var all = [].concat(s.days, s.moneyIn, s.moneyOut).map(function (x) { return x.date; }).filter(Boolean).sort();
     var start = all[0] || t; if (start > t) start = t;
-    var end = st.tripDate > t ? st.tripDate : t;
+    var end = addDays(t, 28);
+    s.goals.forEach(function (g) { if (g.status === 'active' && g.deadline && g.deadline > end) end = g.deadline; });
     var tomorrow = addDays(t, 1);
     var actIn = {}, actOut = {}, prjIn = {}, prjOut = {};
     function add(map, k, v) { if (!v) return; map[k] = (map[k] || 0) + v; }
@@ -226,7 +339,23 @@
     if (!data || typeof data !== 'object' || !Array.isArray(data.days)) return null;
     var base = seed();
     data.settings = Object.assign({}, base.settings, data.settings || {});
-    ['moneyIn', 'moneyOut', 'plan'].forEach(function (k) { if (!Array.isArray(data[k])) data[k] = []; });
+    ['moneyIn', 'moneyOut', 'plan', 'allocations'].forEach(function (k) { if (!Array.isArray(data[k])) data[k] = []; });
+    if (!Array.isArray(data.goals)) {
+      // v1 -> v2: create the starting goals and link existing bills to them by name
+      var g = seedGoals(), map = [[/pcn/i, 'pcn'], [/zable/i, 'zable'], [/family/i, 'family'], [/china/i, 'china'], [/cscs/i, 'cscs']];
+      data.moneyOut.forEach(function (o) {
+        var m = map.find(function (r) { return r[0].test(o.category || ''); });
+        o.goalId = m ? g[m[1]].id : null;
+        if (m && m[1] === 'pcn') o.priority = false;
+        delete o.china;
+      });
+      data.goals = Object.keys(g).map(function (k) { return g[k]; });
+      data.moneyOut.forEach(function (o) {
+        if (o.goalId && o.status === 'paid' && o.amount) data.allocations.push({ id: uid(), date: o.date, goalId: o.goalId, amount: o.amount, outId: o.id, kind: 'auto', note: 'Paid from savings' });
+      });
+      delete data.settings.target; delete data.settings.tripDate;
+    }
+    data.schema = 2;
     return data;
   }
 
@@ -305,7 +434,7 @@
 
   // ---------- Render ----------
   var chart = null;
-  var ui = { early: false, late: false };
+  var ui = { early: false, late: false, archived: false };
 
   function render() {
     if (!S) return;
@@ -317,7 +446,7 @@
     // Header
     h += '<header class="sticky top-0 z-30 bg-slate-50/90 dark:bg-[#0b0f14]/90 backdrop-blur border-b border-slate-200/70 dark:border-slate-800/70">' +
       '<div class="max-w-xl mx-auto px-4 h-14 flex items-center justify-between">' +
-      '<div><div class="font-bold leading-tight">China Fund</div>' + syncBadge() + '</div>' +
+      '<div><div class="font-bold leading-tight">Money Tracker</div>' + syncBadge() + '</div>' +
       '<div class="flex items-center gap-1">' +
       '<button data-action="refresh" class="' + btnGhost + ' h-10 w-10" aria-label="Refresh from server">↻</button>' +
       '<button data-action="settings" class="' + btnGhost + ' h-10 w-10" aria-label="Settings">⚙︎</button></div></div></header>';
@@ -328,37 +457,46 @@
     var status = c.onTrack
       ? '<div class="rounded-2xl p-4 bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/60 dark:border-emerald-900"><div class="flex items-center gap-2 font-bold text-emerald-800 dark:text-emerald-300"><span aria-hidden="true">✓</span> On track</div>'
       : '<div class="rounded-2xl p-4 bg-red-50 border border-red-200 dark:bg-red-950/60 dark:border-red-900"><div class="flex items-center gap-2 font-bold text-red-800 dark:text-red-300"><span aria-hidden="true">!</span> Behind</div>';
-    status += '<div class="text-sm mt-1">' + (c.onTrack ? 'Projected surplus ' : 'Projected shortfall ') + '<b class="tnum">' + money(Math.abs(c.gap)) + '</b> after all planned costs.</div>' +
+    status += '<div class="text-sm mt-1" data-testid="overall">' + (c.behind.length
+      ? c.behind.length + ' goal' + (c.behind.length === 1 ? '' : 's') + ' behind: ' + c.behind.map(function (g) { return esc(g.name); }).join(', ') + '. '
+      : 'Every goal is covered by its deadline. ') +
+      (c.gap >= 0 ? 'Projected surplus ' : 'Projected shortfall ') + '<b class="tnum">' + money(Math.abs(c.gap)) + '</b>.</div>' +
       '<details class="mt-2 text-sm"><summary class="cursor-pointer text-slate-600 dark:text-slate-400">How this is worked out</summary>' +
       '<table class="w-full mt-2 tnum text-sm"><tbody>' +
-      row2('Saved now', money(c.saved)) + row2('Expected money in', money(c.expectedIn)) + row2('Unpaid wages', money(c.unpaid)) +
+      row2('Unallocated savings', money(c.unallocated)) + row2('Expected money in', money(c.expectedIn)) + row2('Unpaid wages', money(c.unpaid)) +
       row2(c.futureSched.length + ' scheduled days to ' + fDate(S.settings.workUntil), money(c.schedValue)) +
-      row2('<b>Projected funds</b>', '<b>' + money(c.projectedFunds) + '</b>') + row2('Remaining planned costs', '−' + money(c.remainingCosts)) +
-      row2('<b>' + (c.onTrack ? 'Surplus' : 'Shortfall') + '</b>', '<b>' + money(c.gap) + '</b>') + '</tbody></table>' +
-      (c.tbc.length ? '<div class="text-xs text-slate-500 mt-1">Not counted yet (cost TBC): ' + c.tbc.map(function (x) { return esc(x.category); }).join(', ') + '</div>' : '') +
+      row2('<b>Projected funds</b>', '<b>' + money(c.funds) + '</b>') + row2('Still needed for goals', '−' + money(c.need)) +
+      (c.extraCosts ? row2('Other planned bills', '−' + money(c.extraCosts)) : '') +
+      row2('<b>' + (c.gap >= 0 ? 'Surplus' : 'Shortfall') + '</b>', '<b>' + money(c.gap) + '</b>') + '</tbody></table>' +
+      '<div class="text-xs text-slate-500 dark:text-slate-400 mt-1">Goals take money in priority order, using only money that arrives before each deadline. Wages are counted on the Saturday after the work.</div>' +
+      (c.tbc.length ? '<div class="text-xs text-slate-500 mt-1">Not counted yet (target TBC): ' + c.tbc.map(function (x) { return esc(x.name); }).join(', ') + '</div>' : '') +
       '</details></div>';
 
     h += '<section aria-labelledby="dash"><h1 id="dash" class="sr-only">Dashboard</h1>' +
-      '<div class="' + card + ' p-4"><div class="flex items-baseline justify-between"><div class="text-sm font-semibold">China fund</div><div class="text-xs text-slate-500 dark:text-slate-400"><b class="text-slate-900 dark:text-slate-100 tnum">' + c.daysLeft + '</b> days until ' + fDate(S.settings.tripDate) + '</div></div>' +
-      '<div class="mt-1 text-3xl font-bold tnum">' + money(c.chinaFund) + ' <span class="text-base font-medium text-slate-500 dark:text-slate-400">/ ' + money(c.target) + '</span></div>' +
-      '<div class="mt-3 h-3 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden" role="progressbar" aria-label="China fund" aria-valuemin="0" aria-valuemax="' + c.target + '" aria-valuenow="' + c.chinaFund + '"><div class="h-full rounded-full bg-[var(--series-saved)]" style="width:' + c.chinaPct.toFixed(1) + '%"></div></div>' +
-      '<div class="mt-1.5 flex justify-between text-xs text-slate-500 dark:text-slate-400 tnum"><span>' + Math.round(c.chinaPct) + '%' + (c.chinaPaid ? ' · incl. ' + money(c.chinaPaid) + ' already paid' : '') + '</span><span>' + money(Math.max(0, c.target - c.chinaFund)) + ' to go</span></div></div>' +
-      '<div class="grid grid-cols-2 gap-3 mt-3">' +
+      '<div class="grid grid-cols-2 gap-3">' +
       stat('Unpaid wages owed', '<span data-testid="unpaid">' + money(c.unpaid) + '</span>', c.unpaidCount + ' day' + (c.unpaidCount === 1 ? '' : 's')) +
-      stat('Total saved', '<span data-testid="saved">' + money(c.saved) + '</span>', 'In ' + money(c.receivedIn) + ' − out ' + money(c.paidOut)) +
+      stat('Total saved', '<span data-testid="saved">' + money(c.saved) + '</span>', '<span data-testid="unalloc">' + money(c.unallocated) + '</span> unallocated' + (c.unallocated < 0 ? ' <b class="text-red-600 dark:text-red-400">(over-allocated)</b>' : '')) +
       '</div><div class="mt-3">' + status + '</div>';
 
     // Quick actions
-    h += '<div class="grid grid-cols-2 gap-3 mt-3">' +
+    h += '<div class="grid grid-cols-3 gap-2 mt-3">' +
       (loggedToday
-        ? '<button data-action="day" data-id="' + todayRec.id + '" class="' + btnGhost + ' col-span-2 h-14 text-base">✓ Today logged · ' + money(todayRec.rate) + ' ' + dayPill[todayRec.status][0] + '</button>'
-        : '<button data-action="worked-today" class="' + btnPrimary + ' col-span-2 h-14 text-base">＋ Worked today (' + money(todayRec && todayRec.status === 'scheduled' ? todayRec.rate : S.settings.defaultRate) + ')</button>') +
-      '<button data-action="got-paid" class="' + btnGhost + ' h-12">£ Got paid</button>' +
-      '<button data-action="out" class="' + btnGhost + ' h-12">− Spent / paid bill</button></div>';
+        ? '<button data-action="day" data-id="' + todayRec.id + '" class="' + btnGhost + ' col-span-3 h-14 text-base">✓ Today logged · ' + money(todayRec.rate) + ' ' + dayPill[todayRec.status][0] + '</button>'
+        : '<button data-action="worked-today" class="' + btnPrimary + ' col-span-3 h-14 text-base">＋ Worked today (' + money(todayRec && todayRec.status === 'scheduled' ? todayRec.rate : S.settings.defaultRate) + ')</button>') +
+      '<button data-action="got-paid" class="' + btnGhost + ' h-12 text-sm">£ Got paid</button>' +
+      '<button data-action="out" class="' + btnGhost + ' h-12 text-sm">− Spent</button>' +
+      '<button data-action="move" class="' + btnGhost + ' h-12 text-sm">⇄ Move</button></div>';
 
     // Alerts
     var alerts = [];
-    S.moneyOut.filter(function (x) { return x.status === 'planned' && x.priority; }).sort(byDate).forEach(function (x) {
+    activeGoals().forEach(function (g) {
+      var x = c.goals[g.id];
+      if (g.type !== 'payoff' || !x.left || x.daysLeft == null || x.daysLeft > 3) return;
+      var dd = x.daysLeft;
+      var when = dd < 0 ? 'overdue by ' + (-dd) + ' day' + (dd === -1 ? '' : 's') : dd === 0 ? 'due today' : dd === 1 ? 'due tomorrow' : 'due ' + fDate(g.deadline);
+      alerts.push('<div class="flex items-center gap-3"><div class="flex-1 text-sm">' + esc(g.emoji) + ' <b>' + esc(g.name) + ' ' + money(x.left) + '</b> ' + when + (g.legalRisk ? ' · ' + riskText(g) : '') + '</div><button data-action="goal-pay" data-id="' + g.id + '" class="' + btnGhost + ' h-9 px-3 text-sm shrink-0">Pay</button></div>');
+    });
+    S.moneyOut.filter(function (x) { return x.status === 'planned' && x.priority && !x.goalId; }).sort(byDate).forEach(function (x) {
       var dd = diffDays(x.date, t);
       var when = dd < 0 ? 'overdue by ' + (-dd) + ' day' + (dd === -1 ? '' : 's') : dd === 0 ? 'due today' : dd === 1 ? 'due tomorrow' : 'due ' + fDate(x.date);
       alerts.push('<div class="flex items-center gap-3"><div class="flex-1 text-sm"><b>' + esc(x.category) + ' ' + money(x.amount) + '</b> ' + when + (x.note ? ' · ' + esc(x.note) : '') + '</div><button data-action="out-paid" data-id="' + x.id + '" class="' + btnGhost + ' h-9 px-3 text-sm shrink-0">Mark paid</button></div>');
@@ -371,10 +509,34 @@
     S.moneyIn.filter(function (x) { return x.status === 'expected' && x.date <= t; }).forEach(function (x) {
       alerts.push('<div class="flex items-center gap-3"><div class="flex-1 text-sm">Has <b>' + money(x.amount) + '</b> from ' + esc(x.source) + ' arrived?</div><button data-action="in-received" data-id="' + x.id + '" class="' + btnGhost + ' h-9 px-3 text-sm shrink-0">Received</button></div>');
     });
+    if (c.unallocated < -0.005) alerts.push('<div class="text-sm">You’ve set aside <b>' + money(-c.unallocated) + '</b> more than you have. Move some back to unallocated.</div>');
     if (alerts.length) {
       h += '<div class="mt-3 rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-900 p-3.5 space-y-2.5"><div class="text-xs font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">Needs attention</div>' + alerts.join('') + '</div>';
     }
     h += '</section>';
+
+    // ---- Goals
+    var act = activeGoals();
+    h += sectionHead('goals', 'Goals', '<button data-action="goal" class="' + btnGhost + ' h-9 px-3 text-sm">＋ Add goal</button>');
+    h += '<div class="space-y-3" data-testid="goal-list">';
+    if (!act.length) h += '<div class="' + card + ' p-6 text-center text-sm text-slate-500">No active goals. Add one to start saving towards it.</div>';
+    act.forEach(function (g, i) { h += goalCard(g, c, i, act.length); });
+    h += '</div>';
+    var paused = sortGoals(S.goals.filter(function (g) { return g.status === 'paused'; }));
+    if (paused.length) {
+      h += '<div class="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Paused</div><div class="mt-1.5 space-y-2">' +
+        paused.map(function (g) { return miniGoal(g, c, 'Paused'); }).join('') + '</div>';
+    }
+    var done = S.goals.filter(function (g) { return g.status === 'done'; }).sort(function (a, b) { return (b.completedAt || '') < (a.completedAt || '') ? -1 : 1; });
+    if (done.length) {
+      h += '<div class="mt-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Done</div><div class="mt-1.5 space-y-2" data-testid="done-list">' +
+        done.map(function (g) { return miniGoal(g, c, '✓ Completed ' + fDate(g.completedAt)); }).join('') + '</div>';
+    }
+    var archived = S.goals.filter(function (g) { return g.status === 'archived'; });
+    if (archived.length) {
+      h += '<button data-action="toggle-weeks" data-which="archived" class="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">' + (ui.archived ? '▾ Hide' : '▸ Show') + ' ' + archived.length + ' archived goal' + (archived.length === 1 ? '' : 's') + '</button>';
+      if (ui.archived) h += '<div class="mt-1.5 space-y-2">' + archived.map(function (g) { return miniGoal(g, c, 'Archived'); }).join('') + '</div>';
+    }
 
     // ---- Work log
     h += sectionHead('work', 'Work log', '<button data-action="day" class="' + btnGhost + ' h-9 px-3 text-sm">＋ Add day</button>');
@@ -422,7 +584,7 @@
         '<td class="px-3 py-2.5 whitespace-nowrap">' + (x.dateLabel ? esc(x.dateLabel) : fDate(x.date)) + '</td>' +
         '<td class="px-3 py-2.5"><div class="flex flex-wrap items-center gap-1">' + esc(x.category) +
         (x.priority && x.status !== 'paid' ? ' ' + pill('HIGH PRIORITY', 'bg-red-600 text-white dark:bg-red-500 dark:text-red-950') : '') +
-        (x.china ? ' ' + pill('China', 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300') : '') +
+        (x.goalId && goalById(x.goalId) ? ' ' + pill((goalById(x.goalId).emoji || '') + ' ' + goalById(x.goalId).name, 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300') : '') +
         (overdue ? ' ' + pill('Overdue', 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300') : '') + '</div>' +
         (x.note ? '<div class="text-[11px] text-slate-500 dark:text-slate-400">' + esc(x.note) + '</div>' : '') + '</td>' +
         '<td class="px-3 py-2.5 text-right"><div class="tnum font-semibold">' + money(x.amount) + '</div>' + (x.status === 'paid' ? pill('Paid', dayPill.paid[1]) : pill('Planned', dayPill.scheduled[1])) + '</td></tr>';
@@ -461,8 +623,8 @@
 
     // Bottom nav
     h += '<nav class="fixed bottom-0 inset-x-0 z-30 bg-white/95 dark:bg-slate-950/95 backdrop-blur border-t border-slate-200 dark:border-slate-800" style="padding-bottom:env(safe-area-inset-bottom)">' +
-      '<div class="max-w-xl mx-auto grid grid-cols-6 text-[11px] text-slate-600 dark:text-slate-300">' +
-      [['dash', '🏠', 'Home'], ['work', '🗓', 'Work'], ['in', '↓', 'In'], ['out', '↑', 'Out'], ['plan', '📋', 'Plan'], ['chart', '📈', 'Chart']].map(function (n) {
+      '<div class="max-w-xl mx-auto grid grid-cols-7 text-[10px] text-slate-600 dark:text-slate-300">' +
+      [['dash', '🏠', 'Home'], ['goals', '🎯', 'Goals'], ['work', '🗓', 'Work'], ['in', '↓', 'In'], ['out', '↑', 'Out'], ['plan', '📋', 'Plan'], ['chart', '📈', 'Chart']].map(function (n) {
         return '<a href="#' + n[0] + '" data-action="nav" data-target="' + n[0] + '" class="flex flex-col items-center justify-center h-14 gap-0.5"><span class="text-base leading-none" aria-hidden="true">' + n[1] + '</span>' + n[2] + '</a>';
       }).join('') + '</div></nav>';
 
@@ -470,6 +632,60 @@
     document.getElementById('app').innerHTML = h;
     window.scrollTo(0, y);
     drawChart();
+  }
+
+  var priPill = {
+    high: 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/50 dark:text-red-300 dark:border-red-900',
+    med: 'bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-900',
+    low: 'bg-slate-50 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+  };
+  function goalStatusPill(x) {
+    var m = {
+      ontrack: ['✓ On track', dayPill.paid[1]],
+      funded: ['✓ Funded', dayPill.paid[1]],
+      behind: ['! Behind ' + money(x.shortfall), 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'],
+      overdue: ['! Overdue', 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'],
+      tbc: ['Target TBC', dayPill.off[1]]
+    }[x.status];
+    return m ? pill(m[0], m[1]) : '';
+  }
+  function daysText(x, g) {
+    if (!g.deadline) return 'No deadline';
+    var d = x.daysLeft;
+    if (d < 0) return 'Due ' + fDate(g.deadline) + ' (' + (-d) + 'd ago)';
+    if (d === 0) return 'Due today';
+    return d + ' day' + (d === 1 ? '' : 's') + ' left · ' + fDate(g.deadline);
+  }
+  function riskText(g) { return /ccj/i.test(g.notes || '') ? 'CCJ risk' : 'legal risk'; }
+  function goalCard(g, c, i, n) {
+    var x = c.goals[g.id], col = goalColor(g.color), pay = g.type === 'payoff';
+    var h = '<article class="' + card + ' p-4" data-goal="' + g.id + '" aria-label="' + esc(g.name) + '">' +
+      '<div class="flex items-start gap-2"><button data-action="goal" data-id="' + g.id + '" class="flex-1 min-w-0 text-left">' +
+      '<div class="flex items-center gap-1.5 flex-wrap"><span class="text-lg leading-none" aria-hidden="true">' + esc(g.emoji || '🎯') + '</span><span class="font-bold">' + esc(g.name) + '</span>' +
+      pill(PRI_LABEL[g.priority], priPill[g.priority]) + (pay ? pill('Pay off', dayPill.off[1]) : '') + '</div>' +
+      '<div class="flex flex-wrap gap-1 mt-1">' + (x.flag ? pill('HIGH PRIORITY' + (g.legalRisk ? ' · ' + riskText(g) : '') + (x.overdue ? ' · overdue' : ''), 'bg-red-600 text-white dark:bg-red-500 dark:text-red-950') : '') + goalStatusPill(x) + '</div></button>' +
+      '<div class="flex flex-col gap-1 shrink-0">' +
+      '<button data-action="goal-up" data-id="' + g.id + '" class="' + btnGhost + ' h-8 w-8 text-xs' + (i === 0 ? ' opacity-30' : '') + '" aria-label="Move ' + esc(g.name) + ' up"' + (i === 0 ? ' disabled' : '') + '>▲</button>' +
+      '<button data-action="goal-down" data-id="' + g.id + '" class="' + btnGhost + ' h-8 w-8 text-xs' + (i === n - 1 ? ' opacity-30' : '') + '" aria-label="Move ' + esc(g.name) + ' down"' + (i === n - 1 ? ' disabled' : '') + '>▼</button></div></div>' +
+      '<div class="mt-2 flex items-baseline gap-1.5 tnum"><span class="text-2xl font-bold" data-testid="g-progress">' + money(x.progress) + '</span><span class="text-sm text-slate-500 dark:text-slate-400">' + (x.target == null ? (pay ? 'paid off' : 'saved') + ' · target TBC' : '/ ' + money(x.target) + (pay ? ' paid off' : ' saved')) + '</span></div>' +
+      '<div class="mt-2 h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden" role="progressbar" aria-label="' + esc(g.name) + ' progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(x.pct) + '"><div class="h-full rounded-full" style="width:' + x.pct.toFixed(1) + '%;background:' + col + '"></div></div>' +
+      '<div class="mt-2 grid grid-cols-3 gap-2 text-xs text-slate-500 dark:text-slate-400 tnum">' +
+      '<div><div class="font-semibold text-slate-900 dark:text-slate-100 text-sm" data-testid="g-left">' + (x.left == null ? 'TBC' : money(x.left)) + '</div>' + (pay ? 'left to pay' : 'left') + '</div>' +
+      '<div><div class="font-semibold text-slate-900 dark:text-slate-100 text-sm">' + (g.deadline ? (x.daysLeft < 0 ? 'Overdue' : x.daysLeft + 'd') : '—') + '</div>' + (g.deadline ? (pay ? 'due ' : 'by ') + fDate(g.deadline) : 'no deadline') + '</div>' +
+      '<div><div class="font-semibold text-slate-900 dark:text-slate-100 text-sm">' + (x.perWeek != null ? money(Math.ceil(x.perWeek)) : x.left === 0 ? '£0' : '—') + '</div>per week</div></div>' +
+      (pay && (x.spent || x.held) ? '<div class="mt-1.5 text-xs text-slate-500 dark:text-slate-400 tnum">' + money(x.spent) + ' paid' + (x.held > 0 ? ' · ' + money(x.held) + ' set aside' : '') + '</div>' : (!pay && x.spent ? '<div class="mt-1.5 text-xs text-slate-500 dark:text-slate-400 tnum">' + money(x.held) + ' set aside · ' + money(x.spent) + ' already spent</div>' : '')) +
+      (g.notes ? '<div class="mt-1.5 text-xs text-slate-500 dark:text-slate-400">' + esc(g.notes) + '</div>' : '') +
+      '<div class="mt-3 grid grid-cols-2 gap-2">' +
+      (pay ? '<button data-action="goal-pay" data-id="' + g.id + '" class="' + btnPrimary + ' h-10 text-sm">Pay</button>' : '<button data-action="move" data-to="' + g.id + '" class="' + btnPrimary + ' h-10 text-sm">＋ Add money</button>') +
+      (x.left === 0 ? '<button data-action="goal-complete" data-id="' + g.id + '" class="' + btnGhost + ' h-10 text-sm">✓ Mark complete</button>' : '<button data-action="goal" data-id="' + g.id + '" class="' + btnGhost + ' h-10 text-sm">Details</button>') +
+      '</div></article>';
+    return h;
+  }
+  function miniGoal(g, c, sub) {
+    var x = c.goals[g.id];
+    return '<button data-action="goal" data-id="' + g.id + '" class="' + card + ' w-full p-3 flex items-center gap-3 text-left opacity-80"><span class="text-lg" aria-hidden="true">' + esc(g.emoji || '🎯') + '</span>' +
+      '<span class="flex-1 min-w-0"><span class="font-semibold">' + esc(g.name) + '</span><span class="block text-xs text-slate-500 dark:text-slate-400">' + esc(sub) + '</span></span>' +
+      '<span class="text-sm tnum">' + money(x.progress) + (x.target != null ? ' / ' + money(x.target) : '') + '</span></button>';
   }
 
   function row2(a, b) { return '<tr><td class="py-0.5 pr-2">' + a + '</td><td class="py-0.5 text-right">' + b + '</td></tr>'; }
@@ -559,7 +775,7 @@
     document.getElementById('sheet-form').onsubmit = function (e) { e.preventDefault(); onAction('save', formData()); };
   }
   function sheetOpen() { return !!document.getElementById('sheet-form'); }
-  function closeSheet() { var r = document.getElementById('sheet-root'); r.onchange = null; r.innerHTML = ''; document.body.style.overflow = ''; }
+  function closeSheet() { var r = document.getElementById('sheet-root'); r.onchange = null; r.oninput = null; r.innerHTML = ''; document.body.style.overflow = ''; }
   function formData() {
     var f = document.getElementById('sheet-form'), o = {};
     if (!f) return o;
@@ -640,42 +856,114 @@
     });
   }
 
-  function inSheet(id) {
+  // ----- Splitting money across goals
+  function splitGoals() { return sortGoals(S.goals.filter(function (g) { return g.status === 'active' || g.status === 'paused'; })); }
+  function splitFields(existing) {
+    existing = existing || {};
+    var c = calc(S);
+    var rows = splitGoals().map(function (g) {
+      var x = c.goals[g.id];
+      return '<div class="flex items-center gap-2 mb-2"><span class="flex-1 min-w-0 text-sm"><span aria-hidden="true">' + esc(g.emoji || '🎯') + '</span> ' + esc(g.name) +
+        '<span class="block text-[11px] text-slate-500 dark:text-slate-400">' + (x.left == null ? 'target TBC' : money(x.left) + ' left') + (g.status === 'paused' ? ' · paused' : '') + '</span></span>' +
+        '<input name="sp_' + g.id + '" type="number" inputmode="decimal" min="0" step="0.01" class="' + input + ' w-24 tnum" placeholder="£0" value="' + (existing[g.id] || '') + '" aria-label="Amount for ' + esc(g.name) + '">' +
+        '<button type="button" data-sheet-action="fill" data-g="' + g.id + '" class="' + btnGhost + ' h-11 px-2.5 text-xs shrink-0">Fill</button></div>';
+    }).join('');
+    return '<details class="mb-3 rounded-xl border border-slate-200 dark:border-slate-800 p-3"' + (Object.keys(existing).length ? ' open' : '') + '><summary class="cursor-pointer text-sm font-semibold">Split across goals <span class="font-normal text-slate-500 dark:text-slate-400">(optional)</span></summary><div class="mt-3">' + rows +
+      '<div class="flex justify-between text-sm font-semibold border-t border-slate-200 dark:border-slate-800 pt-2 mt-1"><span>Left as unallocated savings</span><span id="split-left" class="tnum"></span></div></div></details>';
+  }
+  function readSplits(f) {
+    var out = [];
+    Object.keys(f).forEach(function (k) { if (k.indexOf('sp_') === 0) { var v = num(f[k]); if (v && v > 0) out.push({ goalId: k.slice(3), amount: v }); } });
+    return out;
+  }
+  function wireSplit(amountName) {
+    var root = document.getElementById('sheet-root');
+    function upd() {
+      var f = formData(), amt = num(f[amountName]) || 0, used = sum(readSplits(f), function (x) { return x.amount; });
+      var el = document.getElementById('split-left'); if (!el) return;
+      var left = Math.round((amt - used) * 100) / 100;
+      el.textContent = money(left); el.className = 'tnum ' + (left < 0 ? 'text-red-600 dark:text-red-400' : '');
+    }
+    root.oninput = upd; upd();
+    return function fill(gid) {
+      var f = formData(), amt = num(f[amountName]) || 0;
+      var others = sum(readSplits(f).filter(function (x) { return x.goalId !== gid; }), function (x) { return x.amount; });
+      var x = calc(S).goals[gid], room = Math.max(0, amt - others);
+      var v = x.left == null ? room : Math.min(room, x.left);
+      document.querySelector('#sheet-form [name="sp_' + gid + '"]').value = v ? Math.round(v * 100) / 100 : '';
+      upd();
+    };
+  }
+  function applyInAllocs(m) {
+    S.allocations = S.allocations.filter(function (a) { return a.inId !== m.id; });
+    if (m.status !== 'received') return;
+    (m.splits || []).forEach(function (sp) {
+      if (goalById(sp.goalId)) S.allocations.push({ id: uid(), date: m.date, goalId: sp.goalId, amount: sp.amount, inId: m.id, kind: 'split', note: 'From ' + m.source });
+    });
+  }
+  function splitMap(list) { var o = {}; (list || []).forEach(function (x) { o[x.goalId] = (o[x.goalId] || 0) + x.amount; }); return o; }
+  function planSplits(p) {
+    var o = {};
+    (p.items || []).forEach(function (i) {
+      var out = i.outId && S.moneyOut.find(function (x) { return x.id === i.outId; });
+      if (out && out.goalId && out.amount && out.status === 'planned' && goalById(out.goalId)) o[out.goalId] = (o[out.goalId] || 0) + out.amount;
+    });
+    return o;
+  }
+
+  function inSheet(id, pre) {
     var x = id ? find('moneyIn', id) : null;
-    var rec = x || { date: todayISO(), source: 'Job', amount: '', status: 'received', note: '' };
-    var body = field('Date', '<input name="date" type="date" class="' + input + '" value="' + rec.date + '">') +
-      field('Source', '<input name="source" list="srcs" class="' + input + '" value="' + esc(rec.source) + '"><datalist id="srcs"><option value="Job"><option value="Diversity"></datalist>') +
-      field('Amount (£)', '<input name="amount" type="number" inputmode="decimal" min="0" step="0.01" class="' + input + ' tnum" value="' + (rec.amount == null ? '' : rec.amount) + '" placeholder="0">') +
+    var rec = Object.assign({}, x || { date: todayISO(), source: 'Job', amount: '', status: 'received', note: '', splits: [] }, (pre && pre.rec) || {});
+    var body = field('Amount (£)', '<input name="amount" type="number" inputmode="decimal" min="0" step="0.01" class="' + input + ' tnum text-xl font-bold" value="' + (rec.amount == null ? '' : rec.amount) + '" placeholder="0">') +
+      '<div class="grid grid-cols-2 gap-3">' + field('Date', '<input name="date" type="date" class="' + input + '" value="' + rec.date + '">') +
+      field('Source', '<input name="source" list="srcs" class="' + input + '" value="' + esc(rec.source) + '"><datalist id="srcs"><option value="Job"><option value="Diversity"></datalist>') + '</div>' +
       seg('status', [['received', 'Received'], ['expected', 'Expected']], rec.status) +
+      splitFields((pre && pre.splits) || splitMap(rec.splits)) +
+      '<p class="text-xs text-slate-500 dark:text-slate-400 -mt-1 mb-3">Splits on expected money are applied when you mark it received.</p>' +
       field('Note', '<input name="note" class="' + input + '" value="' + esc(rec.note) + '" placeholder="Optional">') +
       actions(!!x);
-    openSheet(x ? 'Edit money in' : 'Add money in', body, function (act, f) {
-      if (act === 'delete') { if (confirmDelete()) { remove('moneyIn', x.id); closeSheet(); commit('Deleted'); } return; }
+    openSheet(x ? 'Edit money in' : 'Add money in', body, function (act, f, b) {
+      if (act === 'fill') return fill(b.getAttribute('data-g'));
+      if (act === 'delete') {
+        if (confirmDelete()) { S.allocations = S.allocations.filter(function (a) { return a.inId !== x.id; }); remove('moneyIn', x.id); closeSheet(); commit('Deleted'); }
+        return;
+      }
       var amt = num(f.amount);
       if (amt == null || amt <= 0) { toast('Enter an amount', 'warn'); return; }
       if (!f.date) { toast('Pick a date', 'warn'); return; }
+      var splits = readSplits(f), used = sum(splits, function (s2) { return s2.amount; });
+      if (used > amt + 0.001) { toast('Splits add up to more than ' + money(amt), 'warn'); return; }
       var o = x || { id: uid() };
-      o.date = f.date; o.source = (f.source || 'Other').trim(); o.amount = amt; o.status = f.status || 'received'; o.note = f.note || '';
+      o.date = f.date; o.source = (f.source || 'Other').trim(); o.amount = amt; o.status = f.status || 'received'; o.note = f.note || ''; o.splits = splits;
       if (!x) S.moneyIn.push(o);
-      closeSheet(); commit(x ? 'Saved' : 'Added ' + money(amt) + ' in');
+      applyInAllocs(o);
+      if (pre && pre.planId) { var p = S.plan.find(function (y) { return y.id === pre.planId; }); if (p) p.received = o.status === 'received'; }
+      closeSheet();
+      commit((x ? 'Saved' : 'Added ' + money(amt) + ' in') + (splits.length && o.status === 'received' ? ' · ' + money(used) + ' to goals, ' + money(amt - used) + ' unallocated' : ''));
     });
+    var fill = wireSplit('amount');
   }
 
-  function outSheet(id) {
+  function outSheet(id, pre) {
     var x = id ? find('moneyOut', id) : null;
-    var rec = x || { date: todayISO(), category: '', amount: '', status: 'paid', priority: false, china: false, note: '', dateLabel: '' };
+    var rec = Object.assign({}, x || { date: todayISO(), category: '', amount: '', status: 'paid', priority: false, goalId: null, note: '', dateLabel: '' }, pre || {});
     var cats = {}; S.moneyOut.forEach(function (o) { cats[o.category] = 1; }); ['Spending', 'Food', 'Transport', 'Bills'].forEach(function (k) { cats[k] = 1; });
+    var goalOpts = '<option value="">— None —</option>' + sortGoals(S.goals.filter(function (g) { return g.status !== 'archived' || g.id === rec.goalId; })).map(function (g) {
+      return '<option value="' + g.id + '"' + (g.id === rec.goalId ? ' selected' : '') + '>' + esc((g.emoji || '') + ' ' + g.name) + '</option>';
+    }).join('');
     var body = field('Category', '<input name="category" list="cats" class="' + input + '" value="' + esc(rec.category) + '" placeholder="e.g. Spending"><datalist id="cats">' + Object.keys(cats).map(function (k) { return '<option value="' + esc(k) + '">'; }).join('') + '</datalist>') +
       field('Amount (£) — leave blank if TBC', '<input name="amount" type="number" inputmode="decimal" min="0" step="0.01" class="' + input + ' tnum" value="' + (rec.amount == null ? '' : rec.amount) + '" placeholder="TBC">') +
       '<div class="grid grid-cols-2 gap-3">' + field('Date', '<input name="date" type="date" class="' + input + '" value="' + rec.date + '">') +
       field('Date label (optional)', '<input name="dateLabel" class="' + input + '" value="' + esc(rec.dateLabel) + '" placeholder="e.g. 7/8 Nov">') + '</div>' +
       seg('status', [['paid', 'Paid'], ['planned', 'Planned']], rec.status) +
-      check('priority', 'High priority', rec.priority) + check('china', 'Counts towards China trip', rec.china) +
+      field('Towards goal', '<select name="goalId" class="' + input + '">' + goalOpts + '</select>') +
+      check('priority', 'High priority', rec.priority) +
       field('Note', '<input name="note" class="' + input + '" value="' + esc(rec.note) + '" placeholder="Optional">') +
       actions(!!x);
     openSheet(x ? 'Edit money out' : 'Add money out', body, function (act, f) {
       if (act === 'delete') {
         if (confirmDelete()) {
+          S.allocations = S.allocations.filter(function (a) { return a.outId !== x.id; });
           remove('moneyOut', x.id);
           S.plan.forEach(function (p) { p.items = (p.items || []).filter(function (i) { return i.outId !== x.id; }); });
           closeSheet(); commit('Deleted');
@@ -689,8 +977,10 @@
       if (!f.date) { toast('Pick a date', 'warn'); return; }
       var o = x || { id: uid() };
       o.category = f.category.trim(); o.amount = amt; o.date = f.date; o.dateLabel = (f.dateLabel || '').trim(); o.status = f.status || 'paid';
-      o.priority = !!f.priority; o.china = !!f.china; o.note = f.note || '';
+      o.priority = !!f.priority; o.goalId = f.goalId || null; o.note = f.note || '';
+      delete o.china;
       if (!x) S.moneyOut.push(o);
+      syncAutoAlloc(o);
       closeSheet(); commit(x ? 'Saved' : 'Added ' + money(amt) + ' out');
     });
   }
@@ -704,20 +994,182 @@
       '<div class="grid grid-cols-2 gap-3">' + field('Date', '<input name="date" type="date" class="' + input + '" value="' + todayISO() + '">') +
       field('From', '<input name="source" list="srcs2" class="' + input + '" value="' + esc(prefill.source || 'Job') + '"><datalist id="srcs2"><option value="Job"><option value="Diversity"></datalist>') + '</div>' +
       check('markDays', 'Mark worked days as paid (' + c.unpaidCount + ' unpaid, ' + money(c.unpaid) + ')', (prefill.source || 'Job') === 'Job') +
+      splitFields(prefill.splits) +
       '<button type="submit" class="' + btnPrimary + ' h-12 w-full mt-2">Log payment</button>';
-    openSheet('Got paid', body, function (act, f) {
+    openSheet('Got paid', body, function (act, f, b) {
+      if (act === 'fill') return fill(b.getAttribute('data-g'));
       var amt = num(f.amount);
       if (amt == null || amt <= 0) { toast('Enter an amount', 'warn'); return; }
+      var splits = readSplits(f), used = sum(splits, function (s2) { return s2.amount; });
+      if (used > amt + 0.001) { toast('Splits add up to more than ' + money(amt), 'warn'); return; }
       var marked = 0, left = amt;
       if (f.markDays) {
         S.days.filter(function (x) { return x.status === 'unpaid'; }).sort(byDate).forEach(function (x) {
           if (x.rate <= left + 0.001) { x.status = 'paid'; left -= x.rate; marked++; }
         });
       }
-      S.moneyIn.push({ id: uid(), date: f.date || todayISO(), source: (f.source || 'Job').trim(), amount: amt, status: 'received', note: marked ? marked + ' day' + (marked === 1 ? '' : 's') + ' paid' : '' });
+      var m = { id: uid(), date: f.date || todayISO(), source: (f.source || 'Job').trim(), amount: amt, status: 'received', note: marked ? marked + ' day' + (marked === 1 ? '' : 's') + ' paid' : '', splits: splits };
+      S.moneyIn.push(m); applyInAllocs(m);
       if (prefill.planId) { var p = S.plan.find(function (y) { return y.id === prefill.planId; }); if (p) p.received = true; }
       closeSheet();
-      commit('Logged ' + money(amt) + (marked ? ' · ' + marked + ' day' + (marked === 1 ? '' : 's') + ' marked paid' : '') + (f.markDays && left > 0.001 ? ' · ' + money(left) + ' not matched to a day' : ''));
+      commit('Logged ' + money(amt) + (marked ? ' · ' + marked + ' day' + (marked === 1 ? '' : 's') + ' marked paid' : '') + (f.markDays && left > 0.001 ? ' · ' + money(left) + ' not matched to a day' : '') + (used ? ' · ' + money(used) + ' to goals' : ''));
+    });
+    var fill = wireSplit('amount');
+  }
+
+  // ----- Moving money
+  function moveSheet(pre) {
+    pre = pre || {};
+    var c = calc(S);
+    var gl = sortGoals(S.goals.filter(function (g) { return g.status === 'active' || g.status === 'paused'; }));
+    function opts(sel, isFrom) {
+      return '<option value="u"' + (sel === 'u' ? ' selected' : '') + '>Unallocated (' + money(c.unallocated) + ')</option>' + gl.map(function (g) {
+        var x = c.goals[g.id];
+        return '<option value="' + g.id + '"' + (sel === g.id ? ' selected' : '') + '>' + esc((g.emoji || '') + ' ' + g.name) + ' (' + money(Math.max(0, x.held)) + (isFrom ? ' set aside' : '') + ')</option>';
+      }).join('');
+    }
+    var from = pre.from || 'u', to = pre.to || (gl[0] && gl[0].id) || 'u';
+    var suggested = '';
+    if (to !== 'u' && from === 'u') { var tx = c.goals[to]; suggested = tx && tx.left != null ? Math.max(0, Math.min(tx.left, Math.max(0, c.unallocated))) : ''; }
+    var body = field('From', '<select name="from" class="' + input + '">' + opts(from, true) + '</select>') +
+      field('To', '<select name="to" class="' + input + '">' + opts(to, false) + '</select>') +
+      field('Amount (£)', '<input name="amount" type="number" inputmode="decimal" min="0" step="0.01" class="' + input + ' tnum text-xl font-bold" value="' + (suggested ? Math.round(suggested * 100) / 100 : '') + '">') +
+      field('Note', '<input name="note" class="' + input + '" placeholder="Optional">') +
+      '<button type="submit" class="' + btnPrimary + ' h-12 w-full mt-1">Move money</button>';
+    openSheet(pre.to && pre.from !== pre.to && !pre.from ? 'Add money to goal' : 'Move money', body, function (act, f) {
+      var amt = num(f.amount);
+      if (amt == null || amt <= 0) { toast('Enter an amount', 'warn'); return; }
+      if (f.from === f.to) { toast('Pick two different places', 'warn'); return; }
+      var cc = calc(S);
+      var avail = f.from === 'u' ? cc.unallocated : Math.max(0, cc.goals[f.from].held);
+      if (amt > avail + 0.001) { toast('Only ' + money(Math.max(0, avail)) + ' available there', 'warn'); return; }
+      var mid = uid(), dt = todayISO(), note = f.note || '';
+      if (f.from !== 'u') S.allocations.push({ id: uid(), date: dt, goalId: f.from, amount: -amt, moveId: mid, kind: 'move', note: note });
+      if (f.to !== 'u') S.allocations.push({ id: uid(), date: dt, goalId: f.to, amount: amt, moveId: mid, kind: 'move', note: note });
+      closeSheet();
+      var name = function (k) { return k === 'u' ? 'unallocated' : goalById(k).name; };
+      commit('Moved ' + money(amt) + ' from ' + name(f.from) + ' to ' + name(f.to));
+    });
+  }
+
+  // ----- Goals
+  function normaliseOrder() { sortGoals(S.goals).forEach(function (g, i) { g.order = i; }); }
+  function moveGoal(id, dir) {
+    var arr = activeGoals(), i = arr.findIndex(function (g) { return g.id === id; }), j = i + dir;
+    if (i < 0 || j < 0 || j >= arr.length) return;
+    var g = arr[i], other = arr[j];
+    arr[i] = other; arr[j] = g;
+    var changed = g.priority !== other.priority;
+    if (changed) g.priority = other.priority;
+    arr.forEach(function (x, k) { x.order = k; });
+    normaliseOrder();
+    commit(g.name + ' moved ' + (dir < 0 ? 'up' : 'down') + (changed ? ' · now ' + PRI_LABEL[g.priority] + ' priority' : ''));
+  }
+  function payGoal(g) {
+    var planned = S.moneyOut.filter(function (o) { return o.goalId === g.id && o.status === 'planned'; }).sort(byDate)[0];
+    if (planned) return outSheet(planned.id, { status: 'paid', date: planned.date > todayISO() ? todayISO() : planned.date });
+    var x = calc(S).goals[g.id];
+    outSheet(null, { category: g.name, amount: x.left || '', goalId: g.id, status: 'paid' });
+  }
+  function releaseHeld(g, why) {
+    var held = calc(S).goals[g.id].held;
+    if (held > 0.004) S.allocations.push({ id: uid(), date: todayISO(), goalId: g.id, amount: -held, kind: 'release', note: why });
+    return held;
+  }
+  function completeGoal(g) {
+    var x = calc(S).goals[g.id];
+    if (x.left && x.left > 0 && !window.confirm((g.type === 'payoff' ? money(x.left) + ' is still left to pay. ' : money(x.left) + ' short of the target. ') + 'Mark ' + g.name + ' complete anyway?')) return;
+    function finish(msg) { g.status = 'done'; g.completedAt = todayISO(); closeSheet(); commit(msg || g.name + ' completed 🎉'); }
+    if (x.held > 0.004) {
+      openSheet('Complete ' + g.name, '<p class="text-sm mb-4"><b class="tnum">' + money(x.held) + '</b> is still set aside for this goal. What happened to it?</p>' +
+        '<button type="button" data-sheet-action="spent" class="' + btnPrimary + ' h-12 w-full mb-2">I spent it — log ' + money(x.held) + ' as money out</button>' +
+        '<button type="button" data-sheet-action="release" class="' + btnGhost + ' h-12 w-full">Return it to unallocated savings</button>', function (act) {
+        if (act === 'spent') {
+          var o = { id: uid(), date: todayISO(), category: g.name, amount: Math.round(x.held * 100) / 100, status: 'paid', priority: false, goalId: g.id, note: 'Goal completed', dateLabel: '' };
+          S.moneyOut.push(o); syncAutoAlloc(o); finish(g.name + ' completed · ' + money(o.amount) + ' logged as spent');
+        } else if (act === 'release') { releaseHeld(g, 'Goal completed'); finish(g.name + ' completed · ' + money(x.held) + ' back to unallocated'); }
+      });
+      return;
+    }
+    finish();
+  }
+  function deleteGoal(g) {
+    var x = calc(S).goals[g.id];
+    if (!window.confirm('Delete "' + g.name + '"?' + (x.held > 0 ? ' The ' + money(x.held) + ' set aside goes back to unallocated.' : '') + ' This can’t be undone.')) return;
+    S.allocations = S.allocations.filter(function (a) { return a.goalId !== g.id; });
+    S.moneyOut.forEach(function (o) { if (o.goalId === g.id) o.goalId = null; });
+    S.moneyIn.forEach(function (m) { if (m.splits) m.splits = m.splits.filter(function (sp) { return sp.goalId !== g.id; }); });
+    S.goals = S.goals.filter(function (y) { return y.id !== g.id; });
+    closeSheet(); commit('Deleted ' + g.name);
+  }
+
+  function goalSheet(id) {
+    var g = id ? goalById(id) : null;
+    var rec = g || { name: '', type: 'save', target: '', deadline: '', priority: 'med', emoji: '🎯', color: GOAL_COLORS[S.goals.length % GOAL_COLORS.length][0], notes: '', legalRisk: false, status: 'active' };
+    var c = calc(S), x = g ? c.goals[g.id] : null;
+    var body = '';
+    if (g) {
+      var st = g.status;
+      body += '<div class="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 mb-4 text-sm tnum">' +
+        '<div class="flex justify-between"><span>' + (g.type === 'payoff' ? 'Paid off' : 'Saved') + '</span><b>' + money(x.progress) + ' / ' + money(x.target) + '</b></div>' +
+        '<div class="flex justify-between text-slate-500 dark:text-slate-400"><span>Set aside now</span><span>' + money(Math.max(0, x.held)) + '</span></div>' +
+        (x.spent ? '<div class="flex justify-between text-slate-500 dark:text-slate-400"><span>Spent / paid</span><span>' + money(x.spent) + '</span></div>' : '') +
+        (g.completedAt ? '<div class="flex justify-between text-slate-500 dark:text-slate-400"><span>Completed</span><span>' + fDate(g.completedAt) + '</span></div>' : '') + '</div>';
+      body += '<div class="grid grid-cols-2 gap-2 mb-4">';
+      if (st === 'active' || st === 'paused') {
+        body += (g.type === 'payoff' ? '<button type="button" data-sheet-action="pay" class="' + btnPrimary + ' h-11 text-sm">Pay</button>' : '<button type="button" data-sheet-action="add-money" class="' + btnPrimary + ' h-11 text-sm">＋ Add money</button>') +
+          '<button type="button" data-sheet-action="move-out" class="' + btnGhost + ' h-11 text-sm">⇄ Move money out</button>' +
+          '<button type="button" data-sheet-action="complete" class="' + btnGhost + ' h-11 text-sm">✓ Mark complete</button>' +
+          '<button type="button" data-sheet-action="archive" class="' + btnGhost + ' h-11 text-sm">Archive</button>';
+      } else {
+        body += '<button type="button" data-sheet-action="reopen" class="' + btnGhost + ' h-11 text-sm col-span-2">' + (st === 'archived' ? 'Unarchive' : 'Reopen goal') + '</button>';
+      }
+      body += '</div><div class="border-t border-slate-200 dark:border-slate-800 mb-4"></div>';
+    }
+    body += field('Name', '<input name="name" class="' + input + '" value="' + esc(rec.name) + '" placeholder="e.g. Holiday" required>') +
+      '<span class="' + label + '">Type</span>' + seg('type', [['save', 'Save up'], ['payoff', 'Pay off a debt']], rec.type) +
+      '<div class="grid grid-cols-2 gap-3">' +
+      field('Target (£) — blank = TBC', '<input name="target" type="number" inputmode="decimal" min="0" step="0.01" class="' + input + ' tnum" value="' + (rec.target == null ? '' : rec.target) + '" placeholder="TBC">') +
+      field('Deadline (optional)', '<input name="deadline" type="date" class="' + input + '" value="' + (rec.deadline || '') + '">') + '</div>' +
+      '<span class="' + label + '">Priority</span>' + seg('priority', [['high', 'High'], ['med', 'Med'], ['low', 'Low']], rec.priority) +
+      '<div class="grid grid-cols-[5rem_1fr] gap-3">' + field('Emoji', '<input name="emoji" class="' + input + ' text-center text-xl" maxlength="4" value="' + esc(rec.emoji) + '">') +
+      '<div><span class="' + label + '">Colour</span><div class="flex flex-wrap gap-2 mb-3">' + GOAL_COLORS.map(function (cl) {
+        return '<label class="cursor-pointer"><input type="radio" name="color" value="' + cl[0] + '" class="peer sr-only"' + (cl[0] === rec.color ? ' checked' : '') + '><span class="block h-8 w-8 rounded-full ring-offset-2 ring-offset-white dark:ring-offset-slate-900 peer-checked:ring-2 peer-checked:ring-slate-900 dark:peer-checked:ring-slate-100 peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-500" style="background:' + cl[1] + '" title="' + cl[0] + '"></span></label>';
+      }).join('') + '</div></div></div>' +
+      check('legalRisk', 'Legal risk (e.g. CCJ) — always flag as HIGH PRIORITY', rec.legalRisk) +
+      (g && (g.status === 'active' || g.status === 'paused') ? check('paused', 'Paused (not counted in On track)', g.status === 'paused') : '') +
+      field('Notes', '<textarea name="notes" rows="2" class="' + input + '" placeholder="Optional">' + esc(rec.notes) + '</textarea>') +
+      actions(!!g);
+    openSheet(g ? 'Edit goal' : 'Add goal', body, function (act, f) {
+      if (act === 'delete') return deleteGoal(g);
+      if (act === 'pay') { closeSheet(); return payGoal(g); }
+      if (act === 'add-money') { closeSheet(); return moveSheet({ from: 'u', to: g.id }); }
+      if (act === 'move-out') { closeSheet(); return moveSheet({ from: g.id, to: 'u' }); }
+      if (act === 'complete') return completeGoal(g);
+      if (act === 'archive') {
+        if (!window.confirm('Archive "' + g.name + '"? It will be hidden from the dashboard.')) return;
+        var rel = releaseHeld(g, 'Goal archived'); g.status = 'archived'; closeSheet();
+        return commit(g.name + ' archived' + (rel > 0.004 ? ' · ' + money(rel) + ' back to unallocated' : ''));
+      }
+      if (act === 'reopen') { g.status = 'active'; g.completedAt = null; normaliseOrder(); closeSheet(); return commit(g.name + ' is active again'); }
+      var name = (f.name || '').trim();
+      if (!name) { toast('Give the goal a name', 'warn'); return; }
+      var target = num(f.target);
+      if (target != null && target <= 0) { toast('Target must be more than £0 (or blank for TBC)', 'warn'); return; }
+      var o = g || { id: uid(), status: 'active', completedAt: null, createdAt: todayISO() };
+      var priChanged = g && g.priority !== f.priority;
+      o.name = name; o.type = f.type || 'save'; o.target = target; o.deadline = f.deadline || null; o.priority = f.priority || 'med';
+      o.emoji = (f.emoji || '').trim() || '🎯'; o.color = f.color || 'blue'; o.notes = f.notes || ''; o.legalRisk = !!f.legalRisk;
+      if (g && (g.status === 'active' || g.status === 'paused')) g.status = f.paused ? 'paused' : 'active';
+      if (!g || priChanged) {
+        // place by deadline within its priority group
+        var peers = sortGoals(S.goals.filter(function (y) { return y.priority === o.priority && y.id !== o.id; }));
+        var before = peers.find(function (y) { return o.deadline && (!y.deadline || y.deadline > o.deadline); });
+        o.order = before ? before.order - 0.5 : (peers.length ? peers[peers.length - 1].order + 0.5 : S.goals.length);
+      }
+      if (!g) S.goals.push(o);
+      normaliseOrder();
+      closeSheet(); commit(g ? 'Goal saved' : 'Added goal ' + name);
     });
   }
 
@@ -771,9 +1223,7 @@
   function settingsSheet() {
     var st = S.settings, theme = lsGet(LS.theme) || 'system';
     var body = '<div class="grid grid-cols-2 gap-3">' +
-      field('China target (£)', '<input name="target" type="number" inputmode="decimal" class="' + input + ' tnum" value="' + st.target + '">') +
       field('Default day rate (£)', '<input name="defaultRate" type="number" inputmode="decimal" class="' + input + ' tnum" value="' + st.defaultRate + '">') +
-      field('Trip date', '<input name="tripDate" type="date" class="' + input + '" value="' + st.tripDate + '">') +
       field('Count work up to', '<input name="workUntil" type="date" class="' + input + '" value="' + st.workUntil + '">') + '</div>' +
       field('Savings correction (£) — use if your real balance differs', '<input name="adjust" type="number" inputmode="decimal" step="0.01" class="' + input + ' tnum" value="' + (st.adjust || 0) + '">') +
       '<span class="' + label + '">Theme</span>' + seg('theme', [['system', 'Auto'], ['light', 'Light'], ['dark', 'Dark']], theme) +
@@ -788,7 +1238,7 @@
     openSheet('Settings', body, function (act, f) {
       if (act === 'export') {
         var blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
-        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'china-fund-' + todayISO() + '.json';
+        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'money-tracker-' + todayISO() + '.json';
         document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
         toast('Exported'); return;
       }
@@ -806,10 +1256,10 @@
         fi.click(); return;
       }
       if (act === 'lock') { if (window.confirm('Lock the app and remove data from this device? It stays safe on the server.')) { closeSheet(); lock('Locked.'); } return; }
-      var n = { target: num(f.target), defaultRate: num(f.defaultRate), adjust: num(f.adjust) || 0 };
-      if (n.target == null || n.target <= 0 || n.defaultRate == null || n.defaultRate < 0) { toast('Check the numbers', 'warn'); return; }
-      if (!f.tripDate || !f.workUntil) { toast('Pick the dates', 'warn'); return; }
-      Object.assign(S.settings, n, { tripDate: f.tripDate, workUntil: f.workUntil });
+      var n = { defaultRate: num(f.defaultRate), adjust: num(f.adjust) || 0 };
+      if (n.defaultRate == null || n.defaultRate < 0) { toast('Check the numbers', 'warn'); return; }
+      if (!f.workUntil) { toast('Pick the date', 'warn'); return; }
+      Object.assign(S.settings, n, { workUntil: f.workUntil });
       setTheme(f.theme || 'system');
       closeSheet(); commit('Settings saved');
     });
@@ -846,17 +1296,26 @@
     if (a === 'day') return daySheet(id);
     if (a === 'day-set') { var dd = find('days', id); if (dd) { dd.status = el.getAttribute('data-status'); commit(fDay(dd.date) + ' → ' + dayPill[dd.status][0]); } return; }
     if (a === 'in') return inSheet(id);
-    if (a === 'in-received') { var mi = find('moneyIn', id); if (mi) { mi.status = 'received'; commit(money(mi.amount) + ' from ' + mi.source + ' received'); } return; }
+    if (a === 'in-received') {
+      var mi = find('moneyIn', id);
+      if (mi) { mi.status = 'received'; if (mi.date > todayISO()) mi.date = todayISO(); applyInAllocs(mi); commit(money(mi.amount) + ' from ' + mi.source + ' received' + ((mi.splits || []).length ? ' · split applied' : '')); }
+      return;
+    }
+    if (a === 'goal') return goalSheet(id);
+    if (a === 'goal-up' || a === 'goal-down') return moveGoal(id, a === 'goal-up' ? -1 : 1);
+    if (a === 'goal-pay') { var gp = goalById(id); if (gp) payGoal(gp); return; }
+    if (a === 'goal-complete') { var gc = goalById(id); if (gc) completeGoal(gc); return; }
+    if (a === 'move') return moveSheet({ from: el.getAttribute('data-from') || 'u', to: el.getAttribute('data-to') || undefined });
     if (a === 'out') return outSheet(id);
-    if (a === 'out-paid') { var mo = find('moneyOut', id); if (mo) { if (mo.amount == null) return outSheet(id); mo.status = 'paid'; mo.date = mo.date > todayISO() ? todayISO() : mo.date; commit(mo.category + ' marked paid'); } return; }
+    if (a === 'out-paid') { var mo = find('moneyOut', id); if (mo) { if (mo.amount == null) return outSheet(id); mo.status = 'paid'; mo.date = mo.date > todayISO() ? todayISO() : mo.date; syncAutoAlloc(mo); commit(mo.category + ' marked paid'); } return; }
     if (a === 'got-paid') return gotPaidSheet();
     if (a === 'plan') return planSheet(id);
     if (a === 'plan-received') {
       var p = S.plan.find(function (y) { return y.id === id; });
       if (!p) return;
       var linked = p.inId && find('moneyIn', p.inId);
-      if (linked) { linked.status = 'received'; if (linked.date > todayISO()) linked.date = todayISO(); commit(money(linked.amount) + ' from ' + linked.source + ' received'); return; }
-      return gotPaidSheet({ amount: p.amount, source: p.source || 'Job', planId: p.id });
+      if (linked) return inSheet(linked.id, { rec: { status: 'received', date: linked.date > todayISO() ? todayISO() : linked.date }, splits: (linked.splits || []).length ? splitMap(linked.splits) : planSplits(p), planId: p.id });
+      return gotPaidSheet({ amount: p.amount, source: p.source || 'Job', planId: p.id, splits: planSplits(p) });
     }
     if (a === 'toggle-weeks') { var k = el.getAttribute('data-which'); ui[k] = !ui[k]; render(); return; }
     if (a === 'settings') return settingsSheet();

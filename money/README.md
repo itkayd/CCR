@@ -1,6 +1,6 @@
-# China Fund money tracker
+# Money tracker
 
-Mobile-first personal money tracker (work log, money in/out, payday plan, chart).
+Mobile-first personal money tracker: savings and pay-off goals, work log, money in/out with goal splits, payday plan, chart.
 
 - `public/` – source (`index.html`, `app.js`); `src/input.css` – Tailwind input
 - `dist/` – what Vercel serves (static, no build step)
