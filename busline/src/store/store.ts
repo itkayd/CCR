@@ -2,9 +2,16 @@ import { create } from 'zustand';
 
 type Theme = 'auto' | 'light' | 'dark';
 export type Mode = 'live' | 'schematic';
+export type MapProvider = 'openfreemap' | 'versatiles';
+const PROVIDER_KEY = 'busline.mapProvider';
+const savedProvider = (): MapProvider => {
+  try { const v = localStorage.getItem(PROVIDER_KEY); return v === 'versatiles' ? 'versatiles' : 'openfreemap'; } catch { return 'openfreemap'; }
+};
 
 interface State {
   mode: Mode;
+  provider: MapProvider;
+  setProvider: (p: MapProvider) => void;
   station: string | null;
   route: string | null;
   theme: Theme;
@@ -23,6 +30,8 @@ interface State {
 
 export const useStore = create<State>((set, get) => ({
   mode: 'live',
+  provider: savedProvider(),
+  setProvider: (provider) => { try { localStorage.setItem(PROVIDER_KEY, provider); } catch { /* private mode */ } set({ provider }); },
   station: null,
   route: null,
   theme: 'auto',

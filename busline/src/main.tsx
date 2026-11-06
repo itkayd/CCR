@@ -6,7 +6,7 @@ import { Map as SchematicMap } from './components/Map';
 import { Sheet } from './components/Sheet';
 import { loadData, type Data } from './lib/data';
 import { useStore } from './store/store';
-import { LiveMap } from './live/LiveMap';
+import { LiveMap, PROVIDERS, type Provider } from './live/LiveMap';
 import { NearbySheet } from './live/NearbySheet';
 import { useArrivals, useLocation, useNearby } from './live/api';
 
@@ -30,6 +30,17 @@ function ModeSwitch() {
   );
 }
 
+function ProviderTabs() {
+  const { provider, setProvider } = useStore();
+  return (
+    <div className="subtabs" role="tablist" aria-label="Map style">
+      {(Object.keys(PROVIDERS) as Provider[]).map((p) => (
+        <button key={p} role="tab" aria-selected={provider === p} onClick={() => setProvider(p)}>{PROVIDERS[p].label}</button>
+      ))}
+    </div>
+  );
+}
+
 function Live({ data }: { data: Data }) {
   const { pos, state } = useLocation();
   const { stops, error } = useNearby(pos);
@@ -43,8 +54,11 @@ function Live({ data }: { data: Data }) {
     <>
       <LiveMap data={data} pos={pos} nearby={stops} />
       <div className="floattop">
-        <ModeSwitch />
-        <ThemeButton />
+        <div className="floatrow">
+          <ModeSwitch />
+          <ThemeButton />
+        </div>
+        <ProviderTabs />
       </div>
       <NearbySheet data={data} stopHub={stopHub} pos={pos} locState={state} stops={stops} error={error} arrivals={arrivals} updated={updated} />
     </>

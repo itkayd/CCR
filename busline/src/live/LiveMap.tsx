@@ -7,11 +7,22 @@ import { useMedia } from '../lib/useMedia';
 import { resolvedTheme, useStore } from '../store/store';
 import type { LatLon, NearbyStop } from './api';
 
-const STYLES = {
-  light: 'https://tiles.openfreemap.org/styles/positron',
-  dark: 'https://tiles.openfreemap.org/styles/dark',
-};
-const FONT_BOLD = ['Noto Sans Bold'];
+// Two free, keyless providers; the user picks one from the sub-tabs.
+export const PROVIDERS = {
+  openfreemap: {
+    label: 'OpenFreeMap',
+    light: 'https://tiles.openfreemap.org/styles/liberty',
+    dark: 'https://tiles.openfreemap.org/styles/dark',
+    bold: ['Noto Sans Bold'],
+  },
+  versatiles: {
+    label: 'VersaTiles',
+    light: 'https://tiles.versatiles.org/assets/styles/colorful/style.json',
+    dark: 'https://tiles.versatiles.org/assets/styles/colorful-dark/style.json',
+    bold: ['noto_sans_bold'],
+  },
+} as const;
+export type Provider = keyof typeof PROVIDERS;
 const INK = { light: '#16201E', dark: '#E6EEEB' };
 const PAPER = { light: '#FFFFFF', dark: '#18201E' };
 const ACCENT = { light: '#0B6E69', dark: '#4FC2B9' };
@@ -32,7 +43,7 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
   const map = useRef<MLMap | null>(null);
   const [ready, setReady] = useState(0); // bumps after each style (re)load
   const [bearing, setBearing] = useState(0);
-  const { route, theme, sheetInset, recentre } = useStore();
+  const { route, theme, sheetInset, recentre, provider } = useStore();
   const systemDark = useMedia('(prefers-color-scheme: dark)');
   const mode = resolvedTheme(theme);
   void systemDark; // re-render on system theme change
@@ -42,7 +53,7 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
   useEffect(() => {
     const m = new maplibregl.Map({
       container: el.current!,
-      style: STYLES[mode],
+      style: PROVIDERS[provider][mode],
       center: [pos?.lon ?? -0.1281, pos?.lat ?? 51.5081],
       zoom: 15,
       minZoom: 9,
@@ -59,13 +70,15 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
     return () => { m.remove(); map.current = null; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // switch base style with the theme
+  // switch base style with the theme or provider
   const styleMode = useRef(mode);
+  const styleProvider = useRef<Provider>(provider);
   useEffect(() => {
-    if (!map.current || styleMode.current === mode) return;
+    if (!map.current || (styleMode.current === mode && styleProvider.current === provider)) return;
     styleMode.current = mode;
-    map.current.setStyle(STYLES[mode]);
-  }, [mode]);
+    styleProvider.current = provider;
+    map.current.setStyle(PROVIDERS[provider][mode]);
+  }, [mode, provider]);
 
   // add our sources + layers after every style load
   useEffect(() => {
@@ -73,6 +86,7 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
     if (!m || !ready) return;
     let cancelled = false;
     const t = styleMode.current;
+    const FONT_BOLD = [...PROVIDERS[styleProvider.current].bold];
     Promise.all([loadLines(), loadStops()]).then(([lines, stops]) => {
       if (cancelled || !m.getStyle()) return;
       const majors = fc([...data.hubs.values()].filter((h) => h.major).map((h) => pt(h.lon, h.lat, { id: h.id, name: h.name, c: h.colour, n: h.routes.length })));
@@ -82,7 +96,9 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
       add('majors', majors);
       add('nearby', fc([]));
       add('me', fc([]));
-      const before = m.getStyle().layers.find((l) => l.type === 'symbol')?.id; // keep road names above our lines
+      // Draw routes above the whole base map: some styles (OpenFreeMap Dark) put road
+      // casings after their first label layer, which hid the lines.
+      const before = undefined;
       const width = ['interpolate', ['linear'], ['zoom'], 10, 1, 13, 2, 16, 3.5, 18, 5] as unknown as number;
       if (!m.getLayer('routes-plain')) {
         m.addLayer({ id: 'routes-plain', type: 'line', source: 'routes', filter: ['==', ['get', 'm'], 0],
