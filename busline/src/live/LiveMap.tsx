@@ -6,13 +6,22 @@ import type { Data } from '../lib/data';
 import { useMedia } from '../lib/useMedia';
 import { resolvedTheme, useStore } from '../store/store';
 import type { LatLon, NearbyStop } from './api';
-import { busStopIcon, googleLike } from './googleLike';
+import { dropBaseBusStops, googleLike, stopIcon } from './googleLike';
+
+const STOP_FALLBACK = '#D93A2B';
+/** naptanId → marker colour, filled when stops.json loads */
+const stopColour = new Map<string, string>();
 
 /** Load a provider's style; the Google-like one is OpenFreeMap Liberty restyled in the browser. */
 function applyStyle(m: MLMap, provider: Provider, mode: 'light' | 'dark') {
   const url = PROVIDERS[provider][mode];
-  if (provider === 'google') m.setStyle(url, { diff: false, transformStyle: (_prev, next) => googleLike(next, mode) });
-  else m.setStyle(url, { diff: false });
+  m.setStyle(url, {
+    diff: false,
+    transformStyle: (_prev, next) => {
+      const base = dropBaseBusStops(next);
+      return provider === 'google' ? googleLike(base, mode) : base;
+    },
+  });
 }
 
 // Two free, keyless providers; the user picks one from the sub-tabs.
@@ -39,7 +48,6 @@ export const PROVIDERS = {
 export type Provider = keyof typeof PROVIDERS;
 const INK = { light: '#16201E', dark: '#E6EEEB' };
 const PAPER = { light: '#FFFFFF', dark: '#18201E' };
-const ACCENT = { light: '#0B6E69', dark: '#4FC2B9' };
 
 type FC = GeoJSON.FeatureCollection;
 const fc = (features: GeoJSON.Feature[]): FC => ({ type: 'FeatureCollection', features });
@@ -49,8 +57,10 @@ const pt = (lon: number, lat: number, properties: Record<string, unknown> = {}):
 let linesPromise: Promise<FC> | null = null;
 let stopsPromise: Promise<FC> | null = null;
 const loadLines = () => (linesPromise ??= fetch('/data/lines.json').then((r) => r.json()));
-const loadStops = () => (stopsPromise ??= fetch('/data/stops.json').then((r) => r.json()).then((rows: [string, number, number, string][]) =>
-  fc(rows.map(([id, lat, lon, hub]) => pt(lon, lat, { id, hub })))));
+const loadStops = () => (stopsPromise ??= fetch('/data/stops.json').then((r) => r.json()).then((rows: [string, number, number, string, string][]) => {
+  for (const [id, , , , c] of rows) stopColour.set(id, c);
+  return fc(rows.map(([id, lat, lon, hub, c]) => pt(lon, lat, { id, hub, c })));
+}));
 
 export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null; nearby: NearbyStop[] | null }) {
   const el = useRef<HTMLDivElement>(null);
@@ -80,6 +90,11 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
     m.touchZoomRotate.enableRotation();
     m.on('rotate', () => setBearing(m.getBearing()));
     m.on('style.load', () => setReady((n) => n + 1));
+    // stop markers are drawn on demand, one image per colour ("stop-#RRGGBB")
+    m.on('styleimagemissing', (e) => {
+      if (!e.id.startsWith('stop-') || m.hasImage(e.id)) return;
+      m.addImage(e.id, stopIcon(e.id.slice(5)), { pixelRatio: 2 });
+    });
     applyStyle(m, provider, mode);
     map.current = m;
     return () => { m.remove(); map.current = null; };
@@ -128,20 +143,23 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
         m.addLayer({ id: 'route-sel', type: 'line', source: 'routes', filter: ['==', ['get', 'r'], ''],
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: { 'line-color': ['get', 'c'], 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 2.5, 14, 4.5, 17, 7] } });
-        if (styleProvider.current === 'google') {
-          // Google-style red bus-stop markers on every stop
-          if (!m.hasImage('busstop')) m.addImage('busstop', busStopIcon(), { pixelRatio: 2 });
-          m.addLayer({ id: 'stops', type: 'symbol', source: 'stops', minzoom: 15,
-            layout: { 'icon-image': 'busstop', 'icon-size': ['interpolate', ['linear'], ['zoom'], 15, 0.8, 18, 1.1], 'icon-allow-overlap': true, 'icon-ignore-placement': true } });
-        } else {
-          m.addLayer({ id: 'stops', type: 'circle', source: 'stops', minzoom: 15,
-            paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 15, 2.5, 18, 5], 'circle-color': '#8A9692', 'circle-stroke-color': PAPER[t], 'circle-stroke-width': 1 } });
-        }
-        m.addLayer({ id: 'nearby', type: 'circle', source: 'nearby',
-          paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 5, 17, 11], 'circle-color': PAPER[t], 'circle-stroke-color': ACCENT[t], 'circle-stroke-width': 2.5 } });
-        m.addLayer({ id: 'nearby-letter', type: 'symbol', source: 'nearby', minzoom: 14.5,
-          layout: { 'text-field': ['get', 'letter'], 'text-font': FONT_BOLD, 'text-size': 10, 'text-allow-overlap': true },
-          paint: { 'text-color': ACCENT[t] } });
+        // Every stop: a rounded square with a bus glyph in its route colour (red if none)
+        m.addLayer({ id: 'stops', type: 'symbol', source: 'stops', minzoom: 14.5,
+          layout: {
+            'icon-image': ['concat', 'stop-', ['get', 'c']],
+            'icon-size': ['interpolate', ['linear'], ['zoom'], 14.5, 0.6, 16, 0.8, 18, 1.05],
+            'icon-allow-overlap': true, 'icon-ignore-placement': true,
+          } });
+        // Stops in the Nearby list: bigger, with their stop letter underneath
+        m.addLayer({ id: 'nearby', type: 'symbol', source: 'nearby', minzoom: 12.5,
+          layout: {
+            'icon-image': ['concat', 'stop-', ['get', 'c']],
+            'icon-size': ['interpolate', ['linear'], ['zoom'], 12.5, 0.6, 16, 1, 18, 1.25],
+            'icon-allow-overlap': true, 'icon-ignore-placement': true,
+            'text-field': ['step', ['zoom'], '', 15, ['get', 'letter']], 'text-font': FONT_BOLD, 'text-size': 11,
+            'text-anchor': 'top', 'text-offset': [0, 1.15], 'text-optional': true, // letters hide when they collide
+          },
+          paint: { 'text-color': INK[t], 'text-halo-color': PAPER[t], 'text-halo-width': 1.6 } });
         m.addLayer({ id: 'majors', type: 'circle', source: 'majors',
           paint: {
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 3.5, 13, 6, 16, 9],
@@ -177,7 +195,10 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
   useEffect(() => {
     const m = map.current;
     if (!m || !layersReady) return;
-    (m.getSource('nearby') as GeoJSONSource | undefined)?.setData(fc((nearby ?? []).map((s) => pt(s.lon, s.lat, { id: s.id, letter: s.letter.length <= 3 ? s.letter : '' }))));
+    loadStops().then(() => {
+      (m.getSource('nearby') as GeoJSONSource | undefined)?.setData(fc((nearby ?? []).map((s) =>
+        pt(s.lon, s.lat, { id: s.id, letter: s.letter.length <= 3 ? s.letter : '', c: stopColour.get(s.id) ?? STOP_FALLBACK }))));
+    });
   }, [nearby, layersReady]);
 
   // keep the map's centre above the sheet

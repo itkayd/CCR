@@ -365,8 +365,25 @@ function main() {
   writeFileSync(join(OUT, 'meta.json'), JSON.stringify(meta, null, 2));
   // every stop (both directions) with its hub, for the live map and Nearby badges
   const usedHubIds = new Set(hubOut.map((h) => h.id));
+  // Stop marker colour: the colour of the nearest major station along any route through
+  // the stop (by stops travelled). Stops on routes with no major station are red.
+  const STOP_FALLBACK = '#D93A2B';
+  const nearestMajor = new Map<string, { d: number; c: string }>();
+  for (const r of routeOut) {
+    const majIdx = r.path.map((h, i) => (majorSet.has(h) ? i : -1)).filter((i) => i >= 0);
+    if (!majIdx.length) continue;
+    r.path.forEach((h, i) => {
+      let d = Infinity, c = '';
+      for (const m of majIdx) if (Math.abs(m - i) < d) { d = Math.abs(m - i); c = colourResult.colours.get(r.path[m])!; }
+      const prev = nearestMajor.get(h);
+      if (!prev || d < prev.d) nearestMajor.set(h, { d, c });
+    });
+  }
   writeFileSync(join(OUT, 'stops.json'), JSON.stringify(
-    [...stops.values()].filter((s) => usedHubIds.has(stopHub.get(s.id)!)).map((s) => [s.id, round(s.lat, 5), round(s.lon, 5), stopHub.get(s.id)]),
+    [...stops.values()].filter((s) => usedHubIds.has(stopHub.get(s.id)!)).map((s) => {
+      const h = stopHub.get(s.id)!;
+      return [s.id, round(s.lat, 5), round(s.lon, 5), h, nearestMajor.get(h)?.c ?? STOP_FALLBACK];
+    }),
   ));
 
   // review list for hand-editing majors

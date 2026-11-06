@@ -35,6 +35,8 @@ const RULES: Rule[] = [
   [/^water$/, (p) => ({ 'fill-color': p.water })],
   [/^waterway_/, (p) => ({ 'line-color': p.water })],
   [/^(waterway_line_label|water_name_)/, (p) => ({ 'text-color': p.waterLabel, 'text-halo-color': p.halo })],
+  // pedestrian areas are a white hatch pattern in Liberty: far too loud at night
+  [/^road_area_pattern$/, (p) => ({ 'fill-opacity': p === NIGHT ? 0.08 : 0.45 })],
   [/^building$/, (p) => ({ 'fill-color': p.building, 'fill-outline-color': p.building })],
   [/_(motorway|motorway_link)_casing$/, (p) => ({ 'line-color': p.motorwayCase })],
   [/_(motorway|motorway_link)$/, (p) => ({ 'line-color': p.motorway })],
@@ -50,6 +52,17 @@ const RULES: Rule[] = [
   [/^poi_/, (p) => ({ 'text-color': p.poiLabel, 'text-halo-color': p.halo })],
   [/^(label_|airport)/, (p) => ({ 'text-color': p.placeLabel, 'text-halo-color': p.halo, 'text-halo-width': 1.5 })],
 ];
+
+/** Remove the base map's own bus-stop icons and names: our coloured markers replace them.
+ *  Rail stations and airports stay. */
+export function dropBaseBusStops(style: StyleSpecification): StyleSpecification {
+  const layers = style.layers
+    .filter((l) => l.id !== 'symbol-transit-bus') // VersaTiles
+    .map((l) => (l.id === 'poi_transit' // OpenFreeMap Liberty
+      ? ({ ...l, filter: ['match', ['get', 'class'], ['airport', 'rail'], true, false] } as LayerSpecification)
+      : l));
+  return { ...style, layers };
+}
 
 export function googleLike(style: StyleSpecification, mode: 'light' | 'dark'): StyleSpecification {
   const p = mode === 'dark' ? NIGHT : DAY;
@@ -67,23 +80,25 @@ export function googleLike(style: StyleSpecification, mode: 'light' | 'dark'): S
   return { ...style, layers };
 }
 
-/** Red rounded-square bus-stop icon (drawn once, no image files). */
-export function busStopIcon(): { width: number; height: number; data: Uint8ClampedArray } {
-  const s = 40, c = document.createElement('canvas');
+/** Rounded-square bus-stop marker in a given colour with a white bus glyph.
+ *  48 px canvas, added at pixelRatio 2 → 24 css px at icon-size 1. */
+export function stopIcon(hex: string): { width: number; height: number; data: Uint8ClampedArray } {
+  const s = 48, c = document.createElement('canvas');
   c.width = c.height = s;
   const g = c.getContext('2d')!;
+  // white rim so the marker reads on any base map and over route lines
   g.fillStyle = '#FFFFFF';
-  g.beginPath(); g.roundRect(1, 1, s - 2, s - 2, 10); g.fill();
-  g.fillStyle = '#D93A2B';
-  g.beginPath(); g.roundRect(4, 4, s - 8, s - 8, 8); g.fill();
-  // bus glyph
+  g.beginPath(); g.roundRect(1, 1, s - 2, s - 2, 12); g.fill();
+  g.fillStyle = hex;
+  g.beginPath(); g.roundRect(4.5, 4.5, s - 9, s - 9, 9); g.fill();
+  // bus glyph: body, windscreen, wheels
   g.fillStyle = '#FFFFFF';
-  g.beginPath(); g.roundRect(11, 9, 18, 19, 4); g.fill();
-  g.fillStyle = '#D93A2B';
-  g.fillRect(13.5, 12, 13, 7);
-  g.beginPath(); g.arc(15, 23.5, 1.7, 0, Math.PI * 2); g.arc(25, 23.5, 1.7, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.roundRect(13, 10.5, 22, 24, 5); g.fill();
+  g.fillStyle = hex;
+  g.beginPath(); g.roundRect(16, 14, 16, 8.5, 1.5); g.fill();
+  g.beginPath(); g.arc(18, 28.5, 2.1, 0, Math.PI * 2); g.arc(30, 28.5, 2.1, 0, Math.PI * 2); g.fill();
   g.fillStyle = '#FFFFFF';
-  g.fillRect(12.5, 28, 3.5, 3); g.fillRect(24, 28, 3.5, 3);
+  g.beginPath(); g.roundRect(14.5, 33.5, 4.5, 4, 1.2); g.roundRect(29, 33.5, 4.5, 4, 1.2); g.fill();
   const img = g.getImageData(0, 0, s, s);
   return { width: s, height: s, data: img.data };
 }
