@@ -7,9 +7,9 @@
     "dev": "vite",
     "build": "tsc -p . && vite build",
     "preview": "vite preview",
-    "data": "tsx scripts/fetch.ts && tsx scripts/build.ts && tsx scripts/geometry.ts",
+    "data": "tsx scripts/fetch.ts && tsx scripts/build.ts && tsx scripts/geometry.ts && tsx scripts/fetch-timetables.ts && tsx scripts/network.ts",
     "data:fetch": "tsx scripts/fetch.ts",
-    "data:build": "tsx scripts/build.ts && tsx scripts/geometry.ts",
+    "data:build": "tsx scripts/build.ts && tsx scripts/geometry.ts && tsx scripts/network.ts",
     "test": "tsx --test scripts/*.test.ts"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
 import { Component, StrictMode, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Map as MapIcon, Monitor, Moon, Network, Sun } from 'lucide-react';
+import { Layers, Map as MapIcon, Monitor, Moon, Network, Sun } from 'lucide-react';
 import './styles/tokens.css';
 import { Map as SchematicMap } from './components/Map';
 import { Sheet } from './components/Sheet';
@@ -9,6 +9,7 @@ import { useStore } from './store/store';
 import { LiveMap, PROVIDERS, type Provider } from './live/LiveMap';
 import { NearbySheet } from './live/NearbySheet';
 import { useArrivals, useLocation, useNearby } from './live/api';
+import { warmPlanner } from './router/client';
 
 function ThemeButton() {
   const { theme, cycleTheme } = useStore();
@@ -30,13 +31,30 @@ function ModeSwitch() {
   );
 }
 
-function ProviderTabs() {
-  const { provider, setProvider } = useStore();
+/** One button for map style and theme, so the map stays clear. */
+function LayersMenu() {
+  const { provider, setProvider, theme, setTheme } = useStore();
+  const [open, setOpen] = useState(false);
   return (
-    <div className="subtabs" role="tablist" aria-label="Map style">
-      {(Object.keys(PROVIDERS) as Provider[]).map((p) => (
-        <button key={p} role="tab" aria-selected={provider === p} onClick={() => setProvider(p)}>{PROVIDERS[p].label}</button>
-      ))}
+    <div className="layers">
+      <button className="roundbtn" aria-label="Map style and theme" aria-expanded={open} onClick={() => setOpen(!open)}><Layers size={21} /></button>
+      {open && (
+        <div className="layers-panel" role="dialog" aria-label="Map settings">
+          <h4>Map style</h4>
+          <div className="seg">
+            {(Object.keys(PROVIDERS) as Provider[]).map((p) => (
+              <button key={p} aria-pressed={provider === p} onClick={() => setProvider(p)}>{PROVIDERS[p].label}</button>
+            ))}
+          </div>
+          <h4>Theme</h4>
+          <div className="seg">
+            {([['auto', Monitor, 'Auto'], ['light', Sun, 'Light'], ['dark', Moon, 'Dark']] as const).map(([t, Icon, label]) => (
+              <button key={t} aria-pressed={theme === t} onClick={() => setTheme(t)}><Icon size={15} />{label}</button>
+            ))}
+          </div>
+          <button className="layers-done" onClick={() => setOpen(false)}>Done</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -60,18 +78,17 @@ function Live({ data }: { data: Data }) {
   useEffect(() => {
     fetch('/data/stops.json').then((r) => r.json()).then((rows: [string, number, number, string][]) => setStopHub(new Map(rows.map((r) => [r[0], r[3]]))));
   }, []);
+  // get the journey planner's network ready in the background once the home screen has settled
+  useEffect(() => { const t = window.setTimeout(warmPlanner, 4000); return () => clearTimeout(t); }, []);
   const ids = useMemo(() => (stops ?? []).slice(0, 12).map((s) => s.id), [stops]);
   const { arrivals, updated } = useArrivals(ids, true);
   return (
     <>
       <MapBoundary><LiveMap data={data} pos={pos} nearby={stops} /></MapBoundary>
       <div className="floattop">
-        <div className="floatrow">
-          <ModeSwitch />
-          <ThemeButton />
-        </div>
-        <ProviderTabs />
+        <ModeSwitch />
       </div>
+      <LayersMenu />
       <NearbySheet data={data} stopHub={stopHub} pos={pos} locState={state} stops={stops} error={error} retry={retry} arrivals={arrivals} updated={updated} />
     </>
   );

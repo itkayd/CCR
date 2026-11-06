@@ -335,3 +335,28 @@ button.cbadge::after { content: ''; position: absolute; inset: -6px -2px; }
 .leg-body { display: flex; flex-direction: column; gap: 3px; padding: 2px 0 14px; font-size: 14px; }
 .leg-body b { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; }
 .fineprint { color: var(--muted); font-size: 12px; margin: 4px 4px 0; }
+
+.fromto { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface); border-radius: 14px; border: 1px solid var(--rule); }
+.ftrow { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; background: none; border: 0; text-align: left; font-size: 15px; color: var(--ink); cursor: pointer; min-width: 0; }
+.ftrow + .ftrow { border-top: 1px solid var(--rule); }
+.ftrow.static { cursor: default; }
+.ftrow b { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ftlabel { font-size: 12px; font-weight: 700; color: var(--muted); width: 34px; flex: none; }
+.ftdot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.ftdot.me { background: #2F7CF6; box-shadow: 0 0 0 3px color-mix(in srgb, #2F7CF6 25%, transparent); }
+.ftdot.end { background: var(--accent); }
+.frompicker { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.frompicker .results { padding: 0 12px 24px; overflow-y: auto; }
+.livewait { display: inline-flex; align-items: center; gap: 5px; font-weight: 800; font-size: 13px; }
+.fast.alt { background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--ink); }
+
+.layers { position: fixed; z-index: 5; top: calc(10px + env(safe-area-inset-top)); right: calc(max(12px, env(safe-area-inset-right)) + 58px); }
+.layers-panel {
+  position: absolute; right: -58px; top: 56px; width: min(320px, calc(100vw - 24px)); padding: 14px; border-radius: 16px;
+  background: var(--surface); border: 1px solid var(--rule); box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px;
+}
+.layers-panel h4 { margin: 2px 2px 0; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.seg { display: flex; gap: 4px; padding: 3px; border-radius: 12px; background: var(--row); }
+.seg button { flex: 1; min-height: 40px; border: 0; border-radius: 9px; background: none; font-weight: 700; font-size: 13px; color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.layers-done { margin-top: 4px; min-height: 44px; border: 0; border-radius: 12px; background: var(--accent); color: #fff; font-weight: 800; cursor: pointer; }

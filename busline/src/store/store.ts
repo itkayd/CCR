@@ -45,6 +45,7 @@ interface State {
   toggleRoute: (id: string | null) => void;
   setRoute: (id: string | null) => void;
   cycleTheme: () => void;
+  setTheme: (t: Theme) => void;
   setSheetInset: (px: number) => void;
   askRecentre: () => void;
 }
@@ -81,6 +82,11 @@ export const useStore = create<State>((set, get) => ({
   selectStation: (id) => set({ station: id }),
   toggleRoute: (id) => set({ route: id && get().route === id ? null : id }),
   setRoute: (id) => set({ route: id }),
+  setTheme: (t) => {
+    if (t === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', t);
+    set({ theme: t });
+  },
   cycleTheme: () => {
     const next: Theme = ({ auto: 'dark', dark: 'light', light: 'auto' } as const)[get().theme];
     if (next === 'auto') document.documentElement.removeAttribute('data-theme');
@@ -96,3 +102,6 @@ export function resolvedTheme(theme: Theme): 'light' | 'dark' {
   if (theme !== 'auto') return theme;
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
+
+// handy for debugging on a phone: window.__busline.getState()
+if (typeof window !== 'undefined') (window as unknown as { __busline: typeof useStore }).__busline = useStore;

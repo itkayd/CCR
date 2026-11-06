@@ -7,6 +7,7 @@ import { useStore } from '../store/store';
 import { distM, type Arrival, type LatLon, type LocState, type NearbyStop } from './api';
 import { loadRouteDetail, PlaceScreen, RouteScreen, type RouteDetail } from './screens';
 import { JourneyScreen } from './journey';
+import { warmPlanner } from '../router/client';
 
 const HEADER_PX = 0; // no app header on the live map
 const PEEK_PX = 148;
@@ -241,7 +242,7 @@ export function NearbySheet({ data, stopHub, pos, locState, stops, error, retry,
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              onFocus={() => setSnap(snaps[2])}
+              onFocus={() => { setSnap(snaps[2]); warmPlanner(); }}
               placeholder="Where to? Stops, places, routes, postcodes"
               aria-label="Search stops, places, routes or postcodes"
               enterKeyHint="search"

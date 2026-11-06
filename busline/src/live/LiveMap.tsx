@@ -98,6 +98,7 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
     });
     applyStyle(m, provider, mode);
     map.current = m;
+    (window as unknown as { __map: MLMap }).__map = m; // debugging
     return () => { m.remove(); map.current = null; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
