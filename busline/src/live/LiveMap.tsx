@@ -192,11 +192,15 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
           paint: { 'line-color': ['get', 'c'], 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 8] } });
         m.addLayer({ id: 'trip-points', type: 'circle', source: 'trip-points',
           paint: {
-            'circle-radius': ['case', ['==', ['get', 'kind'], 'end'], 9, 6.5],
-            'circle-color': ['case', ['==', ['get', 'kind'], 'end'], ['get', 'c'], PAPER[t]],
-            'circle-stroke-color': ['case', ['==', ['get', 'kind'], 'end'], PAPER[t], ['get', 'c']],
+            'circle-radius': ['match', ['get', 'kind'], 'end', 9, 'via', 12, 6.5],
+            'circle-color': ['match', ['get', 'kind'], ['end', 'via'], ['get', 'c'], PAPER[t]],
+            'circle-stroke-color': ['match', ['get', 'kind'], ['end', 'via'], PAPER[t], ['get', 'c']],
             'circle-stroke-width': 3.5,
           } });
+        // numbered stops on a multi-stop trip
+        m.addLayer({ id: 'trip-labels', type: 'symbol', source: 'trip-points', filter: ['==', ['get', 'kind'], 'via'],
+          layout: { 'text-field': ['get', 'label'], 'text-font': FONT_BOLD, 'text-size': 13, 'text-allow-overlap': true, 'text-ignore-placement': true },
+          paint: { 'text-color': '#FFFFFF' } });
         m.addLayer({ id: 'majors', type: 'circle', source: 'majors',
           paint: {
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 3.5, 13, 6, 16, 9],
@@ -212,6 +216,8 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
           paint: { 'text-color': INK[t], 'text-halo-color': PAPER[t], 'text-halo-width': 1.6 } });
         m.addLayer({ id: 'me-halo', type: 'circle', source: 'me', paint: { 'circle-radius': 18, 'circle-color': '#2F7CF6', 'circle-opacity': 0.16 } });
         m.addLayer({ id: 'me', type: 'circle', source: 'me', paint: { 'circle-radius': 7, 'circle-color': '#2F7CF6', 'circle-stroke-color': '#FFFFFF', 'circle-stroke-width': 2.5 } });
+        // journey markers (changes, numbered stops, destination) sit on top of everything
+        m.moveLayer('trip-points'); m.moveLayer('trip-labels');
       }
       applySelection(m, useStore.getState().route);
       setLayersReady((n) => n + 1);
@@ -285,7 +291,7 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
     if (!m || !layersReady) return;
     (m.getSource('trip') as GeoJSONSource | undefined)?.setData(fc((trip?.legs ?? []).filter((l) => l.path.length > 1).map((l) =>
       ({ type: 'Feature', properties: { mode: l.mode, c: l.c }, geometry: { type: 'LineString', coordinates: l.path } }))));
-    (m.getSource('trip-points') as GeoJSONSource | undefined)?.setData(fc((trip?.points ?? []).map((p) => pt(p.lon, p.lat, { kind: p.kind, c: p.c }))));
+    (m.getSource('trip-points') as GeoJSONSource | undefined)?.setData(fc((trip?.points ?? []).map((p) => pt(p.lon, p.lat, { kind: p.kind, c: p.c, label: p.label ?? '' }))));
     if (trip) {
       m.setPaintProperty('routes', 'line-opacity', 0.1);
       m.setPaintProperty('routes-plain', 'line-opacity', 0.1);

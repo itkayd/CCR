@@ -49,3 +49,23 @@ test('banned routes are not used', () => {
   const plans = R.plan({ lat: 51.35815, lon: -0.09755 }, { lat: 51.3754, lon: -0.0927 }, { clock: noon, banned: new Set(['312']) });
   for (const p of plans) for (const l of p.legs) if (l.mode === 'bus') assert.notEqual(l.route, '312');
 });
+
+import { planTour } from '../src/router/raptor.ts';
+test('multi-stop: best order beats the order given', () => {
+  // start Brixton, stops given in a zig-zag order, finish Camden Town
+  const pts = [
+    { lat: 51.4627, lon: -0.1145, name: 'Brixton' },
+    { lat: 51.5154, lon: -0.1419, name: 'Oxford Circus' },
+    { lat: 51.4964, lon: -0.1432, name: 'Victoria' },
+    { lat: 51.5308, lon: -0.1238, name: "King's Cross" },
+    { lat: 51.5392, lon: -0.1426, name: 'Camden Town' },
+  ];
+  const dwell = [0, 900, 900, 900, 0];
+  const asGiven = planTour(R, pts, dwell, { clock: noon, optimise: false });
+  const best = planTour(R, pts, dwell, { clock: noon, optimise: true });
+  assert.equal(best.order[0], 0); assert.equal(best.order[best.order.length - 1], 4);
+  assert.equal(new Set(best.order).size, 5, 'every stop visited once');
+  assert.ok(best.seconds <= asGiven.seconds + 60, `optimised ${Math.round(best.seconds / 60)} ≤ given ${Math.round(asGiven.seconds / 60)} min`);
+  assert.equal(best.tried, 7, 'tried all 6 orders');
+  assert.equal(best.segments.length, 4);
+});

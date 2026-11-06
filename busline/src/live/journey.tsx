@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDownUp, ArrowLeft, ArrowRight, Footprints, LocateFixed, MapPin, Search } from 'lucide-react';
+import { ArrowDownUp, ArrowLeft, ArrowRight, Clock, Footprints, LocateFixed, MapPin, Plus, Search, Shuffle, X } from 'lucide-react';
 import { NEUTRAL } from '../lib/colour';
 import { colourAt, type Data } from '../lib/data';
 import { useStore, type Place, type Trip } from '../store/store';
 import type { LatLon } from './api';
 import { LiveIcon } from './NearbySheet';
-import { planJourney, warmPlanner } from '../router/client';
+import { planTrip, warmPlanner } from '../router/client';
 import type { Plan } from '../router/raptor';
 
 // ---------------------------------------------------------------- display model
@@ -57,12 +57,17 @@ function legColour(data: Data, l: ULeg): string {
   return best ? colourAt(r, best, data.hubs) : NEUTRAL;
 }
 
-function toTrip(data: Data, j: UJourney): Trip {
+/** Everything to draw: the chosen journey of each leg of the trip, numbered stops, the destination. */
+function toTrip(data: Data, js: UJourney[], vias: { lat: number; lon: number; label: string }[]): Trip {
+  const legs = js.flatMap((j) => j.legs);
+  if (!legs.length) return { legs: [], points: [] };
+  const last = legs[legs.length - 1].to;
   return {
-    legs: j.legs.map((l) => ({ mode: l.mode, c: l.mode === 'bus' ? legColour(data, l) : '#6F7C78', path: l.path })),
+    legs: legs.map((l) => ({ mode: l.mode, c: l.mode === 'bus' ? legColour(data, l) : '#6F7C78', path: l.path })),
     points: [
-      ...j.legs.filter((l) => l.mode === 'bus').map((l) => ({ lon: l.from.lon, lat: l.from.lat, kind: 'change' as const, c: legColour(data, l) })),
-      { lon: j.legs[j.legs.length - 1].to.lon, lat: j.legs[j.legs.length - 1].to.lat, kind: 'end', c: '#0B6E69' },
+      ...legs.filter((l) => l.mode === 'bus').map((l) => ({ lon: l.from.lon, lat: l.from.lat, kind: 'change' as const, c: legColour(data, l) })),
+      ...vias.map((v) => ({ lon: v.lon, lat: v.lat, kind: 'via' as const, c: '#0B6E69', label: v.label })),
+      { lon: last.lon, lat: last.lat, kind: 'end', c: '#0B6E69' },
     ],
   };
 }
@@ -175,8 +180,8 @@ function JourneyCard({ data, j, active, fastest, fewest, onSelect }: { data: Dat
   );
 }
 
-/** Choose where to start: your location or any place. */
-function FromPicker({ data, onPick, onClose }: { data: Data; onPick: (p: Place | null) => void; onClose: () => void }) {
+/** Pick a place: your location (if allowed) or any stop or station. */
+function PlacePicker({ data, title, allowMe, onPick, onClose }: { data: Data; title: string; allowMe: boolean; onPick: (p: Place | null) => void; onClose: () => void }) {
   const [q, setQ] = useState('');
   const ql = q.trim().toLowerCase();
   const places = ql.length < 2 ? [] : [...data.hubs.values()].filter((h) => h.name.toLowerCase().includes(ql))
@@ -185,98 +190,190 @@ function FromPicker({ data, onPick, onClose }: { data: Data; onPick: (p: Place |
     <div className="frompicker">
       <div className="nsearch">
         <Search size={20} aria-hidden="true" />
-        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Start from a stop or place" aria-label="Start from" />
+        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={title} aria-label={title} />
         <button className="iconbtn ghost" onClick={onClose}>Cancel</button>
       </div>
       <div className="results">
-        <button className="result" onClick={() => onPick(null)}><span className="pdot go"><LocateFixed size={16} /></span><span className="result-text">Your location</span></button>
+        {allowMe && <button className="result" onClick={() => onPick(null)}><span className="pdot go"><LocateFixed size={16} /></span><span className="result-text">Your location</span></button>}
         {places.map((h) => (
           <button key={h.id} className="result" onClick={() => onPick({ name: h.name, lat: h.lat, lon: h.lon })}>
             <span className="pdot" style={{ background: h.major ? h.colour : 'var(--surface)', boxShadow: h.major ? undefined : 'inset 0 0 0 3px #8A9692' }} />
             <span className="result-text">{h.name}<small>{h.routes.length} routes</small></span>
           </button>
         ))}
+        {ql.length >= 2 && !places.length && <p className="empty">No stops or places match “{q}”.</p>}
       </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------- screen
+interface Point { place: Place | null; stay: number } // place null = your location; stay in minutes
+const STAYS = [0, 10, 15, 30, 45, 60, 90];
+const MAX_STOPS = 6;
+
+interface Result { order: number[]; optimised: boolean; tried: number; totalMin: number; arrive: Date; segments: { from: number; to: number; journeys: UJourney[] }[] }
+
 export function JourneyScreen({ data, pos, to: initialTo }: { data: Data; pos: LatLon | null; to: Place }) {
   const { back, setSearching, setTrip } = useStore();
-  const [to, setTo] = useState<Place>(initialTo);
-  const [from, setFrom] = useState<Place | null>(null); // null = your location
-  const [picking, setPicking] = useState(false);
-  const [journeys, setJourneys] = useState<UJourney[] | null>(null);
+  const [points, setPoints] = useState<Point[]>([{ place: null, stay: 0 }, { place: initialTo, stay: 0 }]);
+  const [optimise, setOptimise] = useState(true);
+  const [picking, setPicking] = useState<{ index: number; insert: boolean } | null>(null);
+  const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [sel, setSel] = useState(0);
+  const [sel, setSel] = useState<number[]>([]);
 
-  const start = from ?? (pos ? { name: 'Your location', lat: pos.lat, lon: pos.lon } : null);
+  const resolved = points.map((p) => p.place ?? (pos ? { name: 'Your location', lat: pos.lat, lon: pos.lon } : null));
+  const to = points[points.length - 1].place!;
+  const ready = resolved.every((p) => p && p.lat !== undefined && p.lon !== undefined);
+  const vias = points.length - 2;
   useEffect(() => { warmPlanner(); }, []);
+
   // postcodes: look up their position (postcodes.io: free, no key)
   useEffect(() => {
-    if (to.lat !== undefined || !to.query) return;
-    let live = true;
-    fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(to.query)}`).then((r) => r.json())
-      .then((d) => { if (live && d.result) setTo({ name: d.result.postcode, lat: d.result.latitude, lon: d.result.longitude }); else if (live) setError('that postcode wasn’t found'); })
-      .catch(() => live && setError('couldn’t look up that postcode'));
-    return () => { live = false; };
-  }, [to]);
+    points.forEach((p, i) => {
+      if (!p.place || p.place.lat !== undefined || !p.place.query) return;
+      fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(p.place.query)}`).then((r) => r.json())
+        .then((d) => {
+          if (d.result) setPoints((ps) => ps.map((x, j) => (j === i ? { ...x, place: { name: d.result.postcode, lat: d.result.latitude, lon: d.result.longitude } } : x)));
+          else setError('that postcode wasn’t found');
+        })
+        .catch(() => setError('couldn’t look up that postcode'));
+    });
+  }, [points]);
 
+  const key = JSON.stringify([resolved.map((p) => p && [p.lat, p.lon]), points.map((p) => p.stay), optimise]);
   useEffect(() => {
-    if (!start || to.lat === undefined || to.lon === undefined) return;
+    if (!ready) return;
     let live = true;
-    setJourneys(null); setError(null);
-    setSearching({ from: { lat: start.lat!, lon: start.lon! }, to });
+    setResult(null); setError(null);
+    const pts = resolved.map((p) => ({ lat: p!.lat!, lon: p!.lon!, name: p!.name }));
+    setSearching({ from: { lat: pts[0].lat, lon: pts[0].lon }, to: { name: to.name, lat: pts[pts.length - 1].lat, lon: pts[pts.length - 1].lon } });
     const t0 = Date.now();
-    planJourney({ lat: start.lat!, lon: start.lon!, name: start.name }, { lat: to.lat, lon: to.lon, name: to.name }, londonClock())
+    planTrip(pts, points.map((p) => p.stay * 60), optimise, londonClock())
       .then(async (res) => {
         await new Promise((r) => setTimeout(r, Math.max(0, MIN_SEARCH_MS - (Date.now() - t0))));
         if (!live) return;
-        if (res.error || !res.plans || !res.stops) throw new Error(res.error ?? 'no result');
+        if (res.error || !res.tour || !res.stops) throw new Error(res.error ?? 'no result');
         const now = Date.now();
-        setJourneys(res.plans.map((p) => toUi(p, res.stops!, now))); setSel(0);
+        const segs = res.tour.segments.map((s) => ({ from: s.from, to: s.to, journeys: s.plans.map((p) => toUi(p, res.stops!, now + s.start * 1000)) }));
+        setResult({ order: res.tour.order, optimised: res.tour.optimised, tried: res.tour.tried, totalMin: Math.round(res.tour.seconds / 60), arrive: new Date(now + res.tour.seconds * 1000), segments: segs });
+        setSel(segs.map(() => 0));
       })
       .catch((e) => live && setError(String(e.message ?? e)))
       .finally(() => { if (live) setSearching(null); });
     return () => { live = false; setSearching(null); };
-  }, [start?.lat, start?.lon, to.lat, to.lon]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [key, ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { setTrip(journeys?.[sel] ? toTrip(data, journeys[sel]) : null); }, [journeys, sel, data, setTrip]);
+  // map: chosen journey of each leg, numbered stops
+  useEffect(() => {
+    if (!result) { setTrip(null); return; }
+    const chosen = result.segments.map((s, i) => s.journeys[sel[i] ?? 0]).filter(Boolean);
+    const stopsInOrder = result.order.slice(1, -1).map((idx, n) => ({ lat: resolved[idx]!.lat!, lon: resolved[idx]!.lon!, label: String(n + 1) }));
+    setTrip(toTrip(data, chosen, stopsInOrder));
+  }, [result, sel, data, setTrip]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => setTrip(null), [setTrip]);
 
-  const swap = () => {
-    if (!start) return;
-    setTo({ name: start.name, lat: start.lat, lon: start.lon });
-    setFrom(to);
+  const pick = (p: Place | null) => {
+    if (!picking) return;
+    setPoints((ps) => {
+      const next = ps.slice();
+      if (picking.insert) next.splice(picking.index, 0, { place: p, stay: 15 });
+      else next[picking.index] = { ...next[picking.index], place: p };
+      return next;
+    });
+    setPicking(null);
   };
-  const fastest = journeys?.length ? Math.min(...journeys.map((j) => j.minutes)) : 0;
-  const fewest = journeys?.filter((j) => j.rides > 0).length ? Math.min(...journeys.filter((j) => j.rides > 0).map((j) => j.rides)) : 0;
+  const remove = (i: number) => setPoints((ps) => ps.filter((_, j) => j !== i));
+  const cycleStay = (i: number) => setPoints((ps) => ps.map((p, j) => (j === i ? { ...p, stay: STAYS[(STAYS.indexOf(p.stay) + 1) % STAYS.length] } : p)));
+  const swap = () => setPoints((ps) => [{ ...ps[1], stay: 0 }, { place: ps[0].place ?? (pos ? { name: 'Your location', lat: pos.lat, lon: pos.lon } : null), stay: 0 }]);
+  const nameOf = (i: number) => (points[i].place ? points[i].place!.name : 'Your location');
 
-  if (picking) return <FromPicker data={data} onClose={() => setPicking(false)} onPick={(p) => { setFrom(p); setPicking(false); }} />;
+  if (picking) {
+    return <PlacePicker data={data} title={picking.insert ? 'Add a stop on the way' : picking.index === 0 ? 'Start from' : 'Go to'} allowMe={!picking.insert && picking.index === 0} onPick={pick} onClose={() => setPicking(null)} />;
+  }
+
+  const orderChanged = result?.optimised && result.order.some((v, i) => v !== i);
   return (
     <>
       <div className="shead">
         <button className="iconbtn ghost" aria-label="Back" onClick={back}><ArrowLeft size={22} /></button>
-        <div className="fromto">
-          <button className="ftrow" onClick={() => setPicking(true)} aria-label="Change start">
-            <span className="ftdot me" /><span className="ftlabel">From</span><b>{from ? from.name : 'Your location'}</b>
-          </button>
-          <div className="ftrow static"><span className="ftdot end" /><span className="ftlabel">To</span><b>{to.name}</b></div>
-        </div>
-        <button className="iconbtn ghost" aria-label="Swap start and destination" onClick={swap}><ArrowDownUp size={20} /></button>
+        <div className="shead-main"><span className="shead-text"><b>{vias ? 'Trip with stops' : `To ${to.name}`}</b><small>Buses and walking</small></span></div>
+        {vias === 0 && <button className="iconbtn ghost" aria-label="Swap start and destination" onClick={swap}><ArrowDownUp size={20} /></button>}
       </div>
       <div className="nlist">
-        {!start && <p className="empty">Getting your location…</p>}
-        {start && to.lat === undefined && !error && <p className="empty">Finding {to.name}…</p>}
-        {start && !journeys && !error && to.lat !== undefined && <Searching data={data} to={to} />}
-        {error && <div className="notice errbox"><span>Couldn’t plan this journey: {error}.</span></div>}
-        {journeys && !journeys.length && <p className="empty">No bus journey found within a few changes. Try a nearby stop or station.</p>}
-        {journeys?.map((j, i) => (
-          <JourneyCard key={i} data={data} j={j} active={i === sel} fastest={j.minutes === fastest} fewest={j.rides === fewest && journeys.filter((x) => x.rides === fewest).indexOf(j) === 0}
-            onSelect={() => setSel(i)} />
-        ))}
-        {journeys && journeys.length > 0 && <p className="fineprint">Planned by Busline from bus timetables and typical waits. Live times shown for your first bus.</p>}
+        <ol className="stopedit" aria-label="Trip stops">
+          {points.map((p, i) => {
+            const first = i === 0, last = i === points.length - 1;
+            return (
+              <li key={i} className={`se-row${first ? ' first' : last ? ' last' : ' via'}`}>
+                <span className="se-mark" aria-hidden="true">{first ? '' : last ? '' : i}</span>
+                <button className="se-name" onClick={() => setPicking({ index: i, insert: false })}>
+                  <small>{first ? 'From' : last ? 'To' : `Stop ${i}`}</small><b>{nameOf(i)}</b>
+                </button>
+                {!first && !last && (
+                  <>
+                    <button className="se-stay" onClick={() => cycleStay(i)} aria-label={`Stay ${p.stay} minutes at ${nameOf(i)}. Change`}>
+                      <Clock size={13} aria-hidden="true" />{p.stay ? `${p.stay} min` : 'No stop'}
+                    </button>
+                    <button className="iconbtn ghost se-x" aria-label={`Remove ${nameOf(i)}`} onClick={() => remove(i)}><X size={18} /></button>
+                  </>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+        <div className="se-actions">
+          {vias < MAX_STOPS && (
+            <button className="se-add" onClick={() => setPicking({ index: points.length - 1, insert: true })}><Plus size={17} aria-hidden="true" /> Add a stop on the way</button>
+          )}
+          {vias >= 2 && (
+            <label className="se-opt">
+              <input type="checkbox" checked={optimise} onChange={(e) => setOptimise(e.target.checked)} />
+              <Shuffle size={15} aria-hidden="true" /> Best order for the quickest trip
+            </label>
+          )}
+        </div>
+
+        {!ready && !error && <p className="empty">{resolved.some((x) => !x) ? 'Getting your location…' : 'Finding that place…'}</p>}
+        {ready && !result && !error && <Searching data={data} to={to} />}
+        {error && <div className="notice errbox"><span>Couldn’t plan this trip: {error}.</span></div>}
+
+        {result && vias > 0 && (
+          <section className="tripsum">
+            <div><b>{result.totalMin}</b> min in total<span className="dot" />arrive {time(result.arrive)}</div>
+            <div className="muted">Includes {points.slice(1, -1).reduce((t, p) => t + p.stay, 0)} min at your stops
+              {orderChanged ? <><span className="dot" />reordered for the quickest trip</> : result.optimised ? <><span className="dot" />your order is already the quickest</> : ''}
+            </div>
+            <div className="tripsum-order">
+              {result.order.map((idx, n) => (
+                <span key={n} className="tso">{n > 0 && <ArrowRight size={12} aria-hidden="true" />}{n > 0 && n < result.order.length - 1 && <i>{n}</i>}{nameOf(idx)}</span>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {result?.segments.map((seg, si) => {
+          const fastest = Math.min(...seg.journeys.map((j) => j.minutes));
+          const rideCounts = seg.journeys.filter((j) => j.rides > 0).map((j) => j.rides);
+          const fewest = rideCounts.length ? Math.min(...rideCounts) : 0;
+          const isStop = si < result.segments.length - 1;
+          return (
+            <section key={si} className="seg">
+              {vias > 0 && <h4 className="sec">{si + 1}. To {nameOf(seg.to)}</h4>}
+              {!seg.journeys.length && <p className="empty">No bus journey found for this part. Try a nearby stop.</p>}
+              {seg.journeys.map((j, i) => (
+                <JourneyCard key={i} data={data} j={j} active={i === (sel[si] ?? 0)} fastest={j.minutes === fastest}
+                  fewest={j.rides === fewest && seg.journeys.filter((x) => x.rides === fewest).indexOf(j) === 0}
+                  onSelect={() => setSel((s) => s.map((v, k) => (k === si ? i : v)))} />
+              ))}
+              {isStop && points[seg.to]?.stay > 0 && (
+                <div className="staybar"><Clock size={15} aria-hidden="true" /> Stay {points[seg.to].stay} min at {nameOf(seg.to)}</div>
+              )}
+            </section>
+          );
+        })}
+        {result && <p className="fineprint">Planned by Busline from bus timetables and typical waits. Live times shown for the first bus of each option.</p>}
       </div>
     </>
   );

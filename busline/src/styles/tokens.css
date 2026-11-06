@@ -360,3 +360,27 @@ button.cbadge::after { content: ''; position: absolute; inset: -6px -2px; }
 .seg button { flex: 1; min-height: 40px; border: 0; border-radius: 9px; background: none; font-weight: 700; font-size: 13px; color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
 .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
 .layers-done { margin-top: 4px; min-height: 44px; border: 0; border-radius: 12px; background: var(--accent); color: #fff; font-weight: 800; cursor: pointer; }
+
+/* ================= multi-stop trips ================= */
+.stopedit { list-style: none; margin: 0; padding: 4px 0; background: var(--surface); border-radius: 16px; border: 1px solid var(--rule); }
+.se-row { display: flex; align-items: center; gap: 8px; padding: 0 8px 0 12px; min-height: 54px; position: relative; }
+.se-row + .se-row { border-top: 1px solid var(--rule); }
+.se-mark { width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center; font: 800 12px/1 Overpass, sans-serif; color: #fff; background: var(--accent); }
+.se-row.first .se-mark { width: 12px; height: 12px; margin: 0 5px; background: #2F7CF6; box-shadow: 0 0 0 4px color-mix(in srgb, #2F7CF6 25%, transparent); }
+.se-row.last .se-mark { width: 14px; height: 14px; margin: 0 4px; border-radius: 4px; }
+.se-name { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; background: none; border: 0; padding: 6px 0; cursor: pointer; text-align: left; color: var(--ink); min-height: 44px; justify-content: center; }
+.se-name small { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.se-name b { font-weight: 800; font-size: 15px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.se-stay { flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 34px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--rule); background: var(--row); color: var(--ink); font-weight: 700; font-size: 12px; cursor: pointer; }
+.se-x { min-width: 40px; height: 40px; }
+.se-actions { display: flex; flex-direction: column; gap: 6px; }
+.se-add { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 46px; border-radius: 14px; border: 1.5px dashed var(--accent); background: transparent; color: var(--accent); font-weight: 800; font-size: 14px; cursor: pointer; }
+.se-opt { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border-radius: 14px; background: var(--surface); font-weight: 700; font-size: 14px; cursor: pointer; }
+.se-opt input { width: 20px; height: 20px; accent-color: var(--accent); }
+.tripsum { background: var(--surface); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; border: 2px solid var(--accent); }
+.tripsum b { font-size: 22px; font-weight: 800; }
+.tripsum-order { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-weight: 700; font-size: 13px; margin-top: 4px; }
+.tso { display: inline-flex; align-items: center; gap: 4px; }
+.tso i { font-style: normal; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: #fff; display: inline-grid; place-items: center; font-size: 11px; }
+.seg { display: flex; flex-direction: column; gap: 8px; }
+.staybar { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent); font-weight: 800; font-size: 13px; }

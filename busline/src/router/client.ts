@@ -1,14 +1,14 @@
 // Main-thread side of the planner worker.
-import type { PlanRequest, PlanResponse } from './worker';
+import type { TourRequest, TourResponse } from './worker';
 
 let worker: Worker | null = null;
 let seq = 0;
-const pending = new Map<number, (r: PlanResponse) => void>();
+const pending = new Map<number, (r: TourResponse) => void>();
 
 function get() {
   if (!worker) {
     worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
-    worker.onmessage = (e: MessageEvent<PlanResponse>) => { pending.get(e.data.id)?.(e.data); pending.delete(e.data.id); };
+    worker.onmessage = (e: MessageEvent<TourResponse>) => { pending.get(e.data.id)?.(e.data); pending.delete(e.data.id); };
   }
   return worker;
 }
@@ -16,10 +16,11 @@ function get() {
 /** Start downloading the network in the background (call when the user starts searching). */
 export const warmPlanner = () => get().postMessage({ warm: true });
 
-export function planJourney(from: PlanRequest['from'], to: PlanRequest['to'], clock: number): Promise<PlanResponse> {
+/** Plan start → stops → destination (two points = a simple journey). */
+export function planTrip(points: TourRequest['points'], dwell: number[], optimise: boolean, clock: number): Promise<TourResponse> {
   const id = ++seq;
   return new Promise((resolve) => {
     pending.set(id, resolve);
-    get().postMessage({ id, from, to, clock } satisfies PlanRequest);
+    get().postMessage({ id, points, dwell, optimise, clock } satisfies TourRequest);
   });
 }

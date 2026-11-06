@@ -218,3 +218,66 @@ export class Router {
     };
   }
 }
+
+// ---------------------------------------------------------------- multi-stop trips
+export interface TourPoint { lat: number; lon: number; name?: string }
+export interface TourSegment { from: number; to: number; plans: Plan[]; start: number }
+export interface Tour { order: number[]; segments: TourSegment[]; seconds: number; optimised: boolean; tried: number }
+
+/**
+ * Plan start → stops → destination. `dwell[i]` is how long you stay at point i (s).
+ * With `optimise`, the in-between stops are re-ordered for the quickest overall trip:
+ * travel times between every pair of points come from the planner, then every order
+ * of the stops is tried (exact for up to 6 stops; nearest-neighbour + 2-opt above).
+ */
+export function planTour(router: Router, points: TourPoint[], dwell: number[], o: PlanOptions & { optimise?: boolean }): Tour {
+  const n = points.length;
+  const mids = Array.from({ length: Math.max(0, n - 2) }, (_, i) => i + 1);
+  let order = [0, ...mids, n - 1];
+  let tried = 1;
+  if (o.optimise && mids.length >= 2) {
+    // pairwise fastest door-to-door times (seconds); clock shift is small, ignore it here
+    const T: number[][] = Array.from({ length: n }, () => new Array(n).fill(Infinity));
+    for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) {
+      if (a === b || b === 0 || a === n - 1) continue;
+      const best = router.plan(points[a], points[b], o)[0];
+      T[a][b] = best ? best.seconds : Infinity;
+    }
+    const cost = (ord: number[]) => ord.slice(1).reduce((t, p, i) => t + T[ord[i]][p], 0);
+    let bestOrd = order, bestCost = cost(order);
+    if (mids.length <= 6) {
+      const permute = (arr: number[], k: number) => {
+        if (k === arr.length) { tried++; const ord = [0, ...arr, n - 1], c = cost(ord); if (c < bestCost) { bestCost = c; bestOrd = ord; } return; }
+        for (let i = k; i < arr.length; i++) { [arr[k], arr[i]] = [arr[i], arr[k]]; permute(arr, k + 1); [arr[k], arr[i]] = [arr[i], arr[k]]; }
+      };
+      permute(mids.slice(), 0);
+    } else {
+      // greedy, then 2-opt improvement
+      const left = new Set(mids); const ord = [0];
+      while (left.size) { const last = ord[ord.length - 1]; let nx = -1, bc = Infinity; for (const m of left) if (T[last][m] < bc) { bc = T[last][m]; nx = m; } ord.push(nx); left.delete(nx); }
+      ord.push(n - 1);
+      let improved = true;
+      while (improved) {
+        improved = false;
+        for (let i = 1; i < ord.length - 2; i++) for (let j = i + 1; j < ord.length - 1; j++) {
+          const cand = [...ord.slice(0, i), ...ord.slice(i, j + 1).reverse(), ...ord.slice(j + 1)];
+          tried++;
+          if (cost(cand) < cost(ord) - 1) { ord.splice(0, ord.length, ...cand); improved = true; }
+        }
+      }
+      bestOrd = ord;
+    }
+    order = bestOrd;
+  }
+  // full plans (with alternatives) for each leg of the chosen order, advancing the clock
+  const segments: TourSegment[] = [];
+  let t = 0;
+  for (let i = 0; i < order.length - 1; i++) {
+    const a = order[i], b = order[i + 1];
+    const clock = (o.clock + t) % 86400;
+    const plans = router.options(points[a], points[b], { ...o, clock }, 3);
+    segments.push({ from: a, to: b, plans, start: t });
+    t += (plans[0]?.seconds ?? 0) + (i + 1 < order.length - 1 ? dwell[b] ?? 0 : 0);
+  }
+  return { order, segments, seconds: t, optimised: !!o.optimise && mids.length >= 2, tried };
+}
