@@ -26,13 +26,13 @@ const FAMILIES: Record<Area, Family> = {
   'north-west': { hues: [118, 165], chroma: [0.08, 0.20] }, // greens
   west:         { hues: [160, 230], chroma: [0.05, 0.17] }, // teals / cyans
   'south-west': { hues: [225, 268], chroma: [0.08, 0.20] }, // blues
-  'south-east': { hues: [25, 80],   chroma: [0.03, 0.09] }, // browns …
+  'south-east': { hues: [25, 80],   chroma: [0.06, 0.12] }, // browns …
   // Zone 1 packs ~40 majors into a few km, so it may use the whole hue circle at
   // high chroma; indigo is only its starting point.
   central:      { hues: [0, 355], chroma: [0.10, 0.26] },
 };
 // slates join the south-east family
-const EXTRA: Partial<Record<Area, Family[]>> = { 'south-east': [{ hues: [215, 250], chroma: [0.02, 0.05] }] };
+const EXTRA: Partial<Record<Area, Family[]>> = { 'south-east': [{ hues: [215, 250], chroma: [0.05, 0.09] }] };
 
 export const NEIGHBOUR_M = 3000;
 export const THRESHOLD = 0.12; // OKLab ΔE (×100 = 12) between majors within NEIGHBOUR_M

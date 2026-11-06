@@ -1,26 +1,70 @@
-import { StrictMode, useEffect, useState } from 'react';
+import { StrictMode, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Monitor, Moon, Sun, X } from 'lucide-react';
+import { Map as MapIcon, Monitor, Moon, Network, Sun } from 'lucide-react';
 import './styles/tokens.css';
-import { Map } from './components/Map';
+import { Map as SchematicMap } from './components/Map';
 import { Sheet } from './components/Sheet';
 import { loadData, type Data } from './lib/data';
 import { useStore } from './store/store';
+import { LiveMap } from './live/LiveMap';
+import { NearbySheet } from './live/NearbySheet';
+import { useArrivals, useLocation, useNearby } from './live/api';
 
-const TOAST_KEY = 'busline.toast.preview.v1';
-const store = {
-  get: (k: string) => { try { return localStorage.getItem(k); } catch { return null; } },
-  set: (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } },
-};
-
-function Toast({ text }: { text: string }) {
-  const [show, setShow] = useState(() => !store.get(TOAST_KEY));
-  if (!show) return null;
-  const close = () => { store.set(TOAST_KEY, '1'); setShow(false); };
+function ThemeButton() {
+  const { theme, cycleTheme } = useStore();
+  const Icon = theme === 'auto' ? Monitor : theme === 'dark' ? Moon : Sun;
   return (
-    <div className="toast" role="status">
-      <span>{text}</span>
-      <button className="iconbtn ghost" aria-label="Dismiss" onClick={close}><X size={18} /></button>
+    <button className="roundbtn" onClick={cycleTheme} aria-label={`Theme: ${theme}. Change theme`} title={`Theme: ${theme}`}>
+      <Icon size={20} />
+    </button>
+  );
+}
+
+function ModeSwitch() {
+  const { mode, setMode } = useStore();
+  return (
+    <div className="modeswitch" role="tablist" aria-label="Map view">
+      <button role="tab" aria-selected={mode === 'live'} onClick={() => setMode('live')}><MapIcon size={16} />Map</button>
+      <button role="tab" aria-selected={mode === 'schematic'} onClick={() => setMode('schematic')}><Network size={16} />Schematic</button>
+    </div>
+  );
+}
+
+function Live({ data }: { data: Data }) {
+  const { pos, state } = useLocation();
+  const { stops, error } = useNearby(pos);
+  const [stopHub, setStopHub] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    fetch('/data/stops.json').then((r) => r.json()).then((rows: [string, number, number, string][]) => setStopHub(new Map(rows.map((r) => [r[0], r[3]]))));
+  }, []);
+  const ids = useMemo(() => (stops ?? []).slice(0, 12).map((s) => s.id), [stops]);
+  const { arrivals, updated } = useArrivals(ids, true);
+  return (
+    <>
+      <LiveMap data={data} pos={pos} nearby={stops} />
+      <div className="floattop">
+        <ModeSwitch />
+        <ThemeButton />
+      </div>
+      <NearbySheet data={data} stopHub={stopHub} pos={pos} locState={state} stops={stops} error={error} arrivals={arrivals} updated={updated} />
+    </>
+  );
+}
+
+function Schematic({ data }: { data: Data }) {
+  const date = new Date(data.meta.generatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return (
+    <div className="app">
+      <header className="topbar">
+        <ModeSwitch />
+        <div className="spacer" />
+        <ThemeButton />
+      </header>
+      <main className="stage">
+        <SchematicMap data={data} />
+        <Sheet data={data} />
+        <div className="footer">Powered by TfL Open Data, {date}</div>
+      </main>
     </div>
   );
 }
@@ -28,28 +72,10 @@ function Toast({ text }: { text: string }) {
 function App() {
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { theme, cycleTheme } = useStore();
+  const { mode } = useStore();
   useEffect(() => { loadData().then(setData, (e) => setError(String(e))); }, []);
-
-  const date = data ? new Date(data.meta.generatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
-  const ThemeIcon = theme === 'auto' ? Monitor : theme === 'dark' ? Moon : Sun;
-  return (
-    <div className="app">
-      <header className="topbar">
-        <div className="brand">Busline<span>London</span></div>
-        <div className="spacer" />
-        <button className="iconbtn ghost" onClick={cycleTheme} aria-label={`Theme: ${theme}. Change theme`} title={`Theme: ${theme}`}>
-          <ThemeIcon size={20} />
-        </button>
-      </header>
-      <main className="stage">
-        {data ? <Map data={data} /> : <div className="loading">{error ?? 'Loading network…'}</div>}
-        {data && <Sheet data={data} />}
-        {data && <Toast text={`Preview: ${data.meta.routeCount} routes and ${data.meta.majorCount} major stations. Tap a station or a line.`} />}
-        <div className="footer">Powered by TfL Open Data{date ? `, ${date}` : ''}</div>
-      </main>
-    </div>
-  );
+  if (!data) return <div className="loading">{error ?? 'Loading network…'}</div>;
+  return mode === 'live' ? <Live data={data} /> : <Schematic data={data} />;
 }
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);

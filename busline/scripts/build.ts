@@ -363,6 +363,11 @@ function main() {
   writeFileSync(join(OUT, 'hubs.json'), JSON.stringify(hubOut));
   writeFileSync(join(OUT, 'routes.json'), JSON.stringify(routeOut));
   writeFileSync(join(OUT, 'meta.json'), JSON.stringify(meta, null, 2));
+  // every stop (both directions) with its hub, for the live map and Nearby badges
+  const usedHubIds = new Set(hubOut.map((h) => h.id));
+  writeFileSync(join(OUT, 'stops.json'), JSON.stringify(
+    [...stops.values()].filter((s) => usedHubIds.has(stopHub.get(s.id)!)).map((s) => [s.id, round(s.lat, 5), round(s.lon, 5), stopHub.get(s.id)]),
+  ));
 
   // review list for hand-editing majors
   const review = majors

@@ -7,9 +7,9 @@
     "dev": "vite",
     "build": "tsc -p . && vite build",
     "preview": "vite preview",
-    "data": "tsx scripts/fetch.ts && tsx scripts/build.ts",
+    "data": "tsx scripts/fetch.ts && tsx scripts/build.ts && tsx scripts/geometry.ts",
     "data:fetch": "tsx scripts/fetch.ts",
-    "data:build": "tsx scripts/build.ts",
+    "data:build": "tsx scripts/build.ts && tsx scripts/geometry.ts",
     "test": "tsx --test scripts/*.test.ts"
   },
   "devDependencies": {
@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "lucide-react": "^0.460.0",
+    "maplibre-gl": "^4.7.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "vaul": "^1.1.2",

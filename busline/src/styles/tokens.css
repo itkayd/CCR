@@ -124,3 +124,92 @@ button { font: inherit; color: inherit; }
 }
 .more::after { content: ''; position: absolute; inset: -8px -4px; }
 .close { margin-left: auto; flex: none; }
+
+/* ================= live map (Nearby home) ================= */
+:root { --row: #F1F4F3; --live: #E0A100; --me: #2F7CF6; }
+:root[data-theme="dark"] { --row: #222B29; --live: #F2C14E; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --row: #222B29; --live: #F2C14E; } }
+
+.livemap { position: fixed; inset: 0; background: var(--paper); }
+.livemap-canvas { position: absolute !important; inset: 0; width: 100%; height: 100%; }
+.maplibregl-ctrl-attrib { font: 400 11px Overpass, system-ui, sans-serif; }
+.maplibregl-ctrl-bottom-left { bottom: calc(var(--sheet, 0px) + 4px); }
+
+.floattop {
+  position: fixed; z-index: 3; left: max(12px, env(safe-area-inset-left)); top: calc(10px + env(safe-area-inset-top));
+  display: flex; gap: 8px; align-items: center;
+}
+.mapbtns {
+  position: fixed; z-index: 3; right: max(12px, env(safe-area-inset-right)); top: calc(10px + env(safe-area-inset-top));
+  display: flex; gap: 10px;
+}
+.roundbtn {
+  width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--rule);
+}
+.roundbtn:hover { border-color: var(--muted); }
+.modeswitch {
+  display: flex; padding: 3px; gap: 2px; border-radius: 999px; background: var(--surface); border: 1px solid var(--rule); height: 48px; align-items: center;
+}
+.modeswitch button {
+  display: inline-flex; align-items: center; gap: 6px; height: 40px; min-width: 44px; padding: 0 14px; border-radius: 999px;
+  border: 0; background: none; cursor: pointer; font-weight: 700; font-size: 14px; color: var(--muted);
+}
+.modeswitch button[aria-selected="true"] { background: var(--accent); color: #fff; }
+:root[data-theme="dark"] .modeswitch button[aria-selected="true"] { color: #08201E; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .modeswitch button[aria-selected="true"] { color: #08201E; } }
+.topbar .modeswitch { height: 42px; }
+.topbar .modeswitch button { height: 34px; }
+
+/* the sheet */
+.nsheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 4; outline: none; display: flex; flex-direction: column;
+  background: var(--paper); border-radius: 16px 16px 0 0; box-shadow: 0 -8px 30px rgba(0, 0, 0, .18);
+  max-width: 560px; margin: 0 auto;
+}
+@media (min-width: 900px) { .nsheet { left: 16px; right: auto; width: 420px; } }
+.nsearch {
+  margin: 6px 16px 10px; height: 48px; display: flex; align-items: center; gap: 10px; padding: 0 6px 0 14px;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; color: var(--muted);
+}
+.nsearch input { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; background: none; color: var(--ink); font: 600 16px Overpass, system-ui, sans-serif; }
+.nsearch:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
+.nband { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 4px 18px 10px; }
+.nband-title { margin: 0; font-weight: 800; font-size: 26px; letter-spacing: -0.02em; color: var(--accent); }
+.nband-meta { font-size: 12px; font-weight: 700; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
+.nlist { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 12px calc(24px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; }
+
+.ncard { background: var(--surface); border-radius: 16px; padding: 6px 8px 8px; border: 1px solid transparent; }
+.ncard.active { border-color: var(--accent); }
+.ncard-head { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 8px; width: 100%; background: none; border: 0; cursor: pointer; border-radius: 10px; }
+.nbadge {
+  min-width: 48px; height: 30px; padding: 0 8px; border-radius: 8px; color: #fff; text-align: center;
+  font: 700 17px/31px 'Overpass Mono', ui-monospace, monospace;
+}
+.nrow {
+  width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; cursor: pointer;
+  background: var(--row); border: 0; border-radius: 12px; padding: 12px 14px; min-height: 64px; margin-top: 6px;
+}
+.nrow-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.nrow-dest { font-weight: 800; font-size: 16px; line-height: 1.2; }
+.nrow-stop { font-size: 13px; color: var(--muted); line-height: 1.35; }
+.nrow-stop > span { white-space: nowrap; }
+.nrow-eta { flex: none; display: inline-flex; align-items: baseline; gap: 4px; font-size: 18px; }
+.nrow-eta b { font-weight: 800; font-variant-numeric: tabular-nums; }
+.nrow-eta small { font-size: 13px; font-weight: 600; color: var(--muted); }
+.nrow-eta.none { font-size: 13px; color: var(--muted); font-weight: 600; }
+.liveicon { align-self: center; fill: var(--live); stroke: var(--live); }
+.liveicon path { fill: none; stroke-width: 1.8; stroke-linecap: round; }
+.liveicon .a1 { animation: livepulse 1.6s ease-in-out infinite; }
+.liveicon .a2 { animation: livepulse 1.6s ease-in-out .3s infinite; }
+@keyframes livepulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+
+.notice { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--surface); font-size: 13px; color: var(--muted); }
+.empty { color: var(--muted); padding: 8px 6px; margin: 0; }
+.results { display: flex; flex-direction: column; gap: 6px; }
+.result { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 12px; background: var(--surface); border: 0; border-radius: 12px; cursor: pointer; text-align: left; }
+.result-text { font-weight: 700; display: flex; flex-direction: column; }
+.result-text small { font-weight: 400; color: var(--muted); }
+.pdot { width: 16px; height: 16px; border-radius: 50%; flex: none; margin: 0 16px; }
+
+.dot { display: inline-block; width: 3px; height: 3px; border-radius: 50%; background: currentColor; margin: 0 6px; vertical-align: middle; position: relative; top: -1px; }

@@ -19,7 +19,7 @@
    "tube"
   ],
   "area": "central",
-  "colour": "#0089EA"
+  "colour": "#7581C2"
  },
  {
   "id": "aldwych-drury-lane",
@@ -27,7 +27,7 @@
   "routes": 33,
   "rail": [],
   "area": "central",
-  "colour": "#2C9600"
+  "colour": "#3E9F24"
  },
  {
   "id": "tottenham-court-road",
@@ -48,7 +48,7 @@
    "tube"
   ],
   "area": "central",
-  "colour": "#39659B"
+  "colour": "#0068A5"
  },
  {
   "id": "lewisham",
@@ -79,7 +79,7 @@
    "tube"
   ],
   "area": "central",
-  "colour": "#9B5164"
+  "colour": "#9C515E"
  },
  {
   "id": "east-croydon",
@@ -90,7 +90,7 @@
    "tram"
   ],
   "area": "south-east",
-  "colour": "#6B8D95"
+  "colour": "#006F85"
  },
  {
   "id": "marble-arch",
@@ -112,7 +112,7 @@
    "tram"
   ],
   "area": "south-east",
-  "colour": "#99564F"
+  "colour": "#CC7455"
  },
  {
   "id": "brixton",
@@ -123,7 +123,7 @@
    "tube"
   ],
   "area": "south-east",
-  "colour": "#7E5D1D"
+  "colour": "#14788E"
  },
  {
   "id": "victoria",
@@ -134,7 +134,7 @@
    "tube"
   ],
   "area": "central",
-  "colour": "#886600"
+  "colour": "#846800"
  },
  {
   "id": "kingston",
@@ -144,7 +144,7 @@
    "national-rail"
   ],
   "area": "south-west",
-  "colour": "#246D85"
+  "colour": "#3480FC"
  },
  {
   "id": "hyde-park-corner",
@@ -154,7 +154,7 @@
    "tube"
   ],
   "area": "central",
-  "colour": "#F70054"
+  "colour": "#F80042"
  },
  {
   "id": "monument",
@@ -201,7 +201,7 @@
    "national-rail"
   ],
   "area": "south-east",
-  "colour": "#B6706B"
+  "colour": "#CE725F"
  },
  {
   "id": "piccadilly-circus",
@@ -222,7 +222,7 @@
    "overground"
   ],
   "area": "south-east",
-  "colour": "#98807D"
+  "colour": "#416A76"
  },
  {
   "id": "waterloo",
@@ -314,7 +314,7 @@
    "overground"
   ],
   "area": "east",
-  "colour": "#A15500"
+  "colour": "#9E5712"
  },
  {
   "id": "walthamstow-bus-station",
@@ -342,7 +342,7 @@
    "tube"
   ],
   "area": "central",
-  "colour": "#676815"
+  "colour": "#5B6C00"
  },
  {
   "id": "streatham",
@@ -352,7 +352,7 @@
    "national-rail"
   ],
   "area": "south-west",
-  "colour": "#2561DD"
+  "colour": "#0061BE"
  },
  {
   "id": "westminster",
@@ -374,7 +374,7 @@
    "tube"
   ],
   "area": "west",
-  "colour": "#517E7A"
+  "colour": "#008F95"
  },
  {
   "id": "clapham-junction",
@@ -385,7 +385,7 @@
    "overground"
   ],
   "area": "south-west",
-  "colour": "#0093C2"
+  "colour": "#36688D"
  },
  {
   "id": "angel",
@@ -425,7 +425,7 @@
    "national-rail"
   ],
   "area": "south-east",
-  "colour": "#73899E"
+  "colour": "#CE7069"
  },
  {
   "id": "baker-street",
@@ -445,7 +445,7 @@
    "national-rail"
   ],
   "area": "south-east",
-  "colour": "#496972"
+  "colour": "#386695"
  },
  {
   "id": "catford",
@@ -455,7 +455,7 @@
    "national-rail"
   ],
   "area": "south-east",
-  "colour": "#51727B"
+  "colour": "#4978A7"
  },
  {
   "id": "shepherds-bush",
@@ -509,7 +509,7 @@
    "tube"
   ],
   "area": "central",
-  "colour": "#209993"
+  "colour": "#0C908A"
  },
  {
   "id": "shoreditch-high-street",
@@ -519,7 +519,7 @@
    "overground"
   ],
   "area": "central",
-  "colour": "#6663A3"
+  "colour": "#705F9F"
  },
  {
   "id": "putney-bridge",
@@ -529,7 +529,7 @@
    "tube"
   ],
   "area": "south-west",
-  "colour": "#3968E8"
+  "colour": "#3A5DDD"
  },
  {
   "id": "aldgate-east",
@@ -551,7 +551,7 @@
    "tube"
   ],
   "area": "west",
-  "colour": "#00769D"
+  "colour": "#008967"
  },
  {
   "id": "wood-green",
@@ -571,7 +571,7 @@
    "tube"
   ],
   "area": "south-west",
-  "colour": "#4287A1"
+  "colour": "#7185B7"
  },
  {
   "id": "archway",
@@ -591,7 +591,7 @@
    "tube"
   ],
   "area": "central",
-  "colour": "#B278AC"
+  "colour": "#B577A7"
  },
  {
   "id": "orpington",
@@ -601,7 +601,7 @@
    "national-rail"
   ],
   "area": "south-east",
-  "colour": "#996937"
+  "colour": "#A54F35"
  },
  {
   "id": "st-pancras-international",
@@ -621,7 +621,7 @@
    "tube"
   ],
   "area": "central",
-  "colour": "#AB4261"
+  "colour": "#9A5169"
  },
  {
   "id": "vauxhall",
@@ -632,7 +632,7 @@
    "tube"
   ],
   "area": "central",
-  "colour": "#3E9F24"
+  "colour": "#AC4259"
  },
  {
   "id": "edgware-road",
@@ -642,7 +642,7 @@
    "tube"
   ],
   "area": "central",
-  "colour": "#0061BE"
+  "colour": "#47619C"
  },
  {
   "id": "euston-square",
@@ -673,7 +673,7 @@
    "national-rail"
   ],
   "area": "south-west",
-  "colour": "#5E79C5"
+  "colour": "#4D72BA"
  },
  {
   "id": "morden",
@@ -683,7 +683,7 @@
    "tube"
   ],
   "area": "south-west",
-  "colour": "#006E8C"
+  "colour": "#4B90AB"
  },
  {
   "id": "uxbridge",
@@ -693,7 +693,7 @@
    "tube"
   ],
   "area": "west",
-  "colour": "#45697A"
+  "colour": "#547E74"
  },
  {
   "id": "mornington-crescent",
@@ -703,7 +703,7 @@
    "tube"
   ],
   "area": "north",
-  "colour": "#8F7000"
+  "colour": "#8A7300"
  },
  {
   "id": "sloane-square",
@@ -713,7 +713,7 @@
    "tube"
   ],
   "area": "central",
-  "colour": "#007CB7"
+  "colour": "#3292B3"
  },
  {
   "id": "canning-town",
@@ -734,7 +734,7 @@
    "overground"
   ],
   "area": "north",
-  "colour": "#A86D4B"
+  "colour": "#96684F"
  },
  {
   "id": "plumstead",
@@ -754,7 +754,7 @@
    "national-rail"
   ],
   "area": "south-east",
-  "colour": "#856E69"
+  "colour": "#9E706A"
  },
  {
   "id": "kennington",
@@ -764,7 +764,7 @@
    "tube"
   ],
   "area": "central",
-  "colour": "#FA002A"
+  "colour": "#FF3624"
  },
  {
   "id": "notting-hill-gate",
@@ -774,7 +774,7 @@
    "tube"
   ],
   "area": "central",
-  "colour": "#FF3624"
+  "colour": "#9A2CEA"
  },
  {
   "id": "white-city",
@@ -806,7 +806,7 @@
    "tube"
   ],
   "area": "west",
-  "colour": "#5E947A"
+  "colour": "#00769D"
  },
  {
   "id": "gants-hill",
@@ -827,7 +827,7 @@
    "tube"
   ],
   "area": "central",
-  "colour": "#BE7100"
+  "colour": "#0089EA"
  },
  {
   "id": "clapham-common",
@@ -837,7 +837,7 @@
    "tube"
   ],
   "area": "south-west",
-  "colour": "#3A5DDD"
+  "colour": "#527AFD"
  },
  {
   "id": "seven-sisters",
@@ -903,7 +903,7 @@
    "national-rail"
   ],
   "area": "south-east",
-  "colour": "#B27654"
+  "colour": "#825B00"
  },
  {
   "id": "high-street-kensington",
@@ -913,7 +913,7 @@
    "tube"
   ],
   "area": "central",
-  "colour": "#A37300"
+  "colour": "#9E7600"
  },
  {
   "id": "surrey-quays",
@@ -934,7 +934,7 @@
    "overground"
   ],
   "area": "north",
-  "colour": "#737A49"
+  "colour": "#B27654"
  },
  {
   "id": "high-barnet",
@@ -944,7 +944,7 @@
    "tube"
   ],
   "area": "north",
-  "colour": "#B37900"
+  "colour": "#AE7C00"
  },
  {
   "id": "north-greenwich",
@@ -965,7 +965,7 @@
    "tube"
   ],
   "area": "west",
-  "colour": "#2A92BB"
+  "colour": "#0093C2"
  },
  {
   "id": "green-park",
@@ -975,7 +975,7 @@
    "tube"
   ],
   "area": "central",
-  "colour": "#117555"
+  "colour": "#00755A"
  },
  {
   "id": "hayes-and-harlington",
@@ -986,7 +986,7 @@
    "national-rail"
   ],
   "area": "west",
-  "colour": "#008967"
+  "colour": "#5E947A"
  },
  {
   "id": "wandsworth-town",
@@ -996,7 +996,7 @@
    "national-rail"
   ],
   "area": "south-west",
-  "colour": "#4F6191"
+  "colour": "#008FD2"
  },
  {
   "id": "kilburn-high-road",
@@ -1037,7 +1037,7 @@
    "tube"
   ],
   "area": "east",
-  "colour": "#F05400"
+  "colour": "#EE560C"
  },
  {
   "id": "beckton",
@@ -1110,7 +1110,7 @@
    "tube"
   ],
   "area": "south-west",
-  "colour": "#527AFD"
+  "colour": "#1463DC"
  },
  {
   "id": "borough",
@@ -1141,7 +1141,7 @@
    "overground"
   ],
   "area": "south-east",
-  "colour": "#52657A"
+  "colour": "#5B8ABB"
  },
  {
   "id": "putney",
@@ -1151,7 +1151,7 @@
    "national-rail"
   ],
   "area": "south-west",
-  "colour": "#3292B3"
+  "colour": "#006D8E"
  },
  {
   "id": "south-kensington",
@@ -1161,7 +1161,7 @@
    "tube"
   ],
   "area": "central",
-  "colour": "#993FFC"
+  "colour": "#1773FF"
  },
  {
   "id": "manor-house",
@@ -1171,7 +1171,7 @@
    "tube"
   ],
   "area": "north",
-  "colour": "#626A00"
+  "colour": "#626A09"
  },
  {
   "id": "leytonstone",
@@ -1191,7 +1191,7 @@
    "tube"
   ],
   "area": "south-east",
-  "colour": "#7D8892"
+  "colour": "#A67F38"
  },
  {
   "id": "abbey-wood",
@@ -1212,7 +1212,7 @@
    "national-rail"
   ],
   "area": "south-east",
-  "colour": "#6D6150"
+  "colour": "#638E99"
  },
  {
   "id": "homerton",
@@ -1232,7 +1232,7 @@
    "tube"
   ],
   "area": "central",
-  "colour": "#D56E49"
+  "colour": "#D37040"
  },
  {
   "id": "surbiton",
@@ -1242,6 +1242,6 @@
    "national-rail"
   ],
   "area": "south-west",
-  "colour": "#3480FC"
+  "colour": "#246D85"
  }
 ]
