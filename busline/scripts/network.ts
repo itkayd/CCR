@@ -150,6 +150,29 @@ function main() {
       patterns.push({ r: det.id, d: d.dir, to: d.to, n: night ? 1 : 0, s, t: t.map((x) => Math.round(x)), h: h ?? (night ? 30 * 60 : DEFAULT_HEADWAY_S), ...(w ? { w } : {}), src: pins.length ? 'tt' : 'est' });
     }
   }
+  // ---- trams (London Trams, Croydon): from the cached tram route sequence
+  let tramPatterns = 0;
+  const tramFile = cachePath('/Line/tram/Route/Sequence/outbound');
+  if (existsSync(tramFile)) {
+    const seq = JSON.parse(readFileSync(tramFile, 'utf8'));
+    const byId = new Map<string, any>((seq.stations ?? []).map((x: any) => [x.id, x]));
+    const tramName = (n: string) => n.replace(/ Tram Stop$/, '').trim();
+    // typical frequencies (min): weekday / Saturday / Sunday × night, early, am, day, pm, evening
+    const W = [0, 15, 10, 10, 10, 15, 0, 15, 10, 10, 10, 15, 0, 20, 15, 12, 12, 15].map((m) => m * 60);
+    for (const r of seq.orderedLineRoutes ?? []) {
+      const stopsOnRoute = (r.naptanIds as string[]).map((id) => byId.get(id)).filter(Boolean);
+      if (stopsOnRoute.length < 2) continue;
+      for (const dirStops of [stopsOnRoute, [...stopsOnRoute].reverse()]) {
+        const sIdx = dirStops.map((x: any) => addStop([x.id, tramName(x.name), '', x.lat, x.lon]));
+        const t = [0];
+        for (let i = 1; i < dirStops.length; i++) t.push(t[i - 1] + metres(dirStops[i - 1], dirStops[i]) / 6.5 + 25); // ≈ 23 km/h + 25 s dwell
+        patterns.push({ r: 'TRAM', d: dirStops === stopsOnRoute ? 'outbound' : 'inbound', to: tramName(dirStops[dirStops.length - 1].name), n: 0, s: sIdx, t: t.map(Math.round), h: 10 * 60, w: W, src: 'est' });
+        tramPatterns++;
+      }
+    }
+  }
+  console.log(`trams: ${tramPatterns} patterns`);
+
   const r5 = (x: number) => Math.round(x * 1e5) / 1e5;
   const net = { generatedAt: new Date().toISOString(), stops: { id: ids, name: names, letter: letters, lat: lat.map(r5), lon: lon.map(r5) }, patterns };
   writeFileSync(join(OUT, 'network.json'), JSON.stringify(net));

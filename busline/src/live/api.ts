@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-export interface NearbyStop { id: string; name: string; letter: string; towards: string; lat: number; lon: number; lines: string[] }
+export interface NearbyStop { id: string; name: string; letter: string; towards: string; lat: number; lon: number; lines: string[]; tram?: boolean }
 export interface Arrival { stop: string; line: string; dir: string; dest: string; eta: number; at: string; vehicle: string }
 export interface LatLon { lat: number; lon: number }
 

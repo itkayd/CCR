@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowDownUp, ArrowLeft, ArrowRight, Bell, BookmarkPlus, CalendarClock, Clock, Footprints, LocateFixed, MapPin, Plus, Search, Shuffle, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, ArrowDownUp, Navigation, ArrowLeft, ArrowRight, Bell, BookmarkPlus, CalendarClock, Clock, Footprints, LocateFixed, MapPin, Plus, Search, Shuffle, X } from 'lucide-react';
 import { NEUTRAL } from '../lib/colour';
-import { colourAt, type Data } from '../lib/data';
+import { colourAt, isTram, lineLabel, TRAM_COLOUR, type Data } from '../lib/data';
 import { useStore, type Place, type Trip } from '../store/store';
 import type { LatLon } from './api';
 import { LiveIcon } from './NearbySheet';
@@ -9,10 +9,13 @@ import { planTrip, warmPlanner } from '../router/client';
 import type { Plan } from '../router/raptor';
 import { DAY_NAMES, countdown, nextOccurrence, londonClockAt, londonDate, londonEpoch, londonTime, upsertPlan, useIssues, type Issue, type SavedPlan } from './plans';
 import { enableReminders } from './reminders';
+import { START, track, view, type Progress } from './onboard';
 
 // ---------------------------------------------------------------- display model
 interface UStop { id: string; name: string; letter: string; lat: number; lon: number }
+interface UStopLite { id: string; name: string; lat: number; lon: number }
 interface ULeg {
+  stopList: UStopLite[]; // every stop ridden through (bus/tram legs)
   mode: 'bus' | 'walk'; minutes: number; dep: Date; line: string | null; towards: string;
   from: UStop; to: UStop; stops: number; path: [number, number][]; waitMin: number; everyMin: number; metres: number;
 }
@@ -34,10 +37,11 @@ function toUi(plan: Plan, st: { id: string[]; name: string[]; letter: string[]; 
   const legs: ULeg[] = plan.legs.map((l) => {
     if (l.mode === 'walk') {
       const from = stop(l.from.stop, l.from), to = stop(l.to.stop, l.to);
-      return { mode: 'walk', minutes: Math.max(1, Math.round(l.seconds / 60)), dep: new Date(now + l.start * 1000), line: null, towards: '', from, to, stops: 0,
+      return { stopList: [], mode: 'walk', minutes: Math.max(1, Math.round(l.seconds / 60)), dep: new Date(now + l.start * 1000), line: null, towards: '', from, to, stops: 0,
         path: [[from.lon, from.lat], [to.lon, to.lat]], waitMin: 0, everyMin: 0, metres: Math.round(l.metres) };
     }
     return {
+      stopList: l.stops.map((s) => ({ id: st.id[s], name: st.name[s], lat: st.lat[s], lon: st.lon[s] })),
       mode: 'bus', minutes: Math.max(1, Math.round(l.ride / 60)), dep: new Date(now + (l.start + l.wait) * 1000), line: l.route, towards: l.towards,
       from: stop(l.board, { name: '', lat: 0, lon: 0 }), to: stop(l.alight, { name: '', lat: 0, lon: 0 }), stops: l.stops.length - 1,
       path: l.stops.map((s) => [st.lon[s], st.lat[s]] as [number, number]), waitMin: Math.round(l.wait / 60), everyMin: Math.round(l.headway / 60), metres: 0,
@@ -48,6 +52,7 @@ function toUi(plan: Plan, st: { id: string[]; name: string[]; letter: string[]; 
 
 /** Colour of a bus leg: the route's colour at the hub nearest where you board. */
 function legColour(data: Data, l: ULeg): string {
+  if (isTram(l.line)) return TRAM_COLOUR;
   const r = l.line ? data.routes.get(l.line) : undefined;
   if (!r) return NEUTRAL;
   let best = '', bd = Infinity;
@@ -120,7 +125,7 @@ function LegChips({ data, j }: { data: Data; j: UJourney }) {
         <span key={i} className="legchip">
           {i > 0 && <ArrowRight size={12} className="sep-arrow" aria-hidden="true" />}
           {l.mode === 'bus'
-            ? <span className="cbadge" style={{ background: legColour(data, l) }}>{l.line}</span>
+            ? <span className="cbadge" style={{ background: legColour(data, l) }}>{lineLabel(l.line!)}</span>
             : <span className="walkchip"><Footprints size={14} aria-hidden="true" />{l.minutes}</span>}
         </span>
       ))}
@@ -139,10 +144,10 @@ function LegList({ data, j, liveEta, issues }: { data: Data; j: UJourney; liveEt
           <div className="leg-body">
             {l.mode === 'bus' ? (
               <>
-                <b><span className="cbadge" style={{ background: legColour(data, l) }}>{l.line}</span> towards {l.towards}</b>
+                <b><span className="cbadge" style={{ background: legColour(data, l) }}>{lineLabel(l.line!)}</span> towards {l.towards}</b>
                 <span>Board at {l.from.name}{l.from.letter ? ` (Stop ${l.from.letter})` : ''}</span>
                 {i === firstBus && typeof liveEta === 'number'
-                  ? <span className="livewait"><LiveIcon /> Next {l.line} {liveEta < 60 ? 'due now' : `in ${Math.floor(liveEta / 60)} min`}</span>
+                  ? <span className="livewait"><LiveIcon /> Next {isTram(l.line) ? 'tram' : l.line} {liveEta < 60 ? 'due now' : `in ${Math.floor(liveEta / 60)} min`}</span>
                   : <span className="muted">Every {l.everyMin} min{l.waitMin ? <><span className="dot" />allow {l.waitMin} min to wait</> : ''}</span>}
                 <span className="muted">{l.stops === 1 ? '1 stop' : `${l.stops} stops`}<span className="dot" />{l.minutes} min<span className="dot" />get off at {l.to.name}</span>
                 {issues.filter((x) => x.line === l.line).slice(0, 2).map((x, k) => (
@@ -204,7 +209,7 @@ function PlacePicker({ data, title, allowMe, onPick, onClose }: { data: Data; ti
         <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={title} aria-label={title} />
         <button className="iconbtn ghost" onClick={onClose}>Cancel</button>
       </div>
-      <div className="results">
+      <div className="results" data-vaul-no-drag>
         {allowMe && <button className="result" onClick={() => onPick(null)}><span className="pdot go"><LocateFixed size={16} /></span><span className="result-text">Your location</span></button>}
         {places.map((h) => (
           <button key={h.id} className="result" onClick={() => onPick({ name: h.name, lat: h.lat, lon: h.lon })}>
@@ -260,7 +265,7 @@ function SavePanel({ defaultTitle, when, onSave, onClose }: { defaultTitle: stri
         <div className="daychips">
           {[1, 2, 3, 4, 5, 6, 0].map((d) => <button key={d} aria-pressed={days.includes(d)} onClick={() => toggle(d)}>{DAY_NAMES[d]}</button>)}
         </div>
-        <small className="muted">{days.length ? 'Every ' + [1, 2, 3, 4, 5, 6, 0].filter((d) => days.includes(d)).map((d) => DAY_NAMES[d]).join(', ') : `Once, ${when.mode === 'now' ? 'today' : when.date}`} · {when.mode === 'arrive' ? 'arrive by' : 'leave at'} {when.mode === 'now' ? londonTime() : when.time}</small>
+        <small className="muted">{days.length ? 'Every ' + [1, 2, 3, 4, 5, 6, 0].filter((d) => days.includes(d)).map((d) => DAY_NAMES[d]).join(', ') : `Once, ${when.mode === 'now' ? 'today' : when.date}`}, {when.mode === 'arrive' ? 'arrive by' : 'leave at'} {when.mode === 'now' ? londonTime() : when.time}</small>
       </div>
       <div className="field"><span>Remind me</span>
         <div className="seg">
@@ -315,6 +320,72 @@ export function LeaveCountdown({ leaveAt, j }: { leaveAt: number; j: UJourney | 
   );
 }
 
+// ---------------------------------------------------------------- live trip
+/** Follows you along the chosen journey using your phone's location. */
+function LiveTrip({ legs, onStop }: { legs: ULeg[]; onStop: () => void }) {
+  const me = useStore((x) => x.me);
+  const setFocus = useStore((x) => x.setFocus);
+  const followed = useRef<{ lat: number; lon: number } | null>(null);
+  useEffect(() => {
+    if (!me) return;
+    const f = followed.current;
+    if (!f || Math.hypot((me.lon - f.lon) * 69400, (me.lat - f.lat) * 111200) > 80) { followed.current = me; setFocus({ lat: me.lat, lon: me.lon, zoom: 16 }); }
+  }, [me, setFocus]);
+  const [p, setP] = useState<Progress>(START);
+  useEffect(() => { if (me) setP((prev) => track(legs, me, prev)); }, [me, legs]);
+  const v = me ? view(legs, p, me) : null;
+  // live wait for the bus/tram you're walking to
+  const nextLeg = legs.slice(p.leg).find((l) => l.mode === 'bus');
+  const [eta, setEta] = useState<number | null>(null);
+  useEffect(() => {
+    if (!nextLeg || (v && v.phase !== 'walk' && v.phase !== 'wait')) return;
+    let on = true;
+    const load = () => fetch(`/api/arrivals?ids=${nextLeg.stopList[0].id}`).then((r) => r.json())
+      .then((d) => { if (on) { const a = (d.arrivals ?? []).find((x: { line: string }) => x.line === nextLeg.line); setEta(a ? a.eta : null); } }).catch(() => {});
+    load();
+    const t = window.setInterval(load, 30_000);
+    return () => { on = false; clearInterval(t); };
+  }, [nextLeg?.stopList[0]?.id, nextLeg?.line, v?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  // tell you once per ride when to get off
+  const warned = useRef<number>(-1);
+  useEffect(() => {
+    if (v?.phase !== 'alight' || warned.current === p.leg) return;
+    warned.current = p.leg;
+    try { navigator.vibrate?.([200, 100, 200]); } catch { /* ignore */ }
+    if ('Notification' in window && Notification.permission === 'granted') {
+      navigator.serviceWorker?.getRegistration().then((r) => r?.showNotification('Get off at the next stop', { body: v.next ?? '', tag: 'alight' })).catch(() => {});
+    }
+  }, [v?.phase, p.leg, v?.next]);
+  const name = (l: string | null) => (isTram(l) ? 'tram' : `${l}`);
+  return (
+    <section className={`livetrip ${v?.phase ?? ''}`} aria-live={v?.phase === 'alight' ? 'assertive' : 'polite'}>
+      <div className="lt-head"><span className="lt-dot" aria-hidden="true" /><b>Live trip</b><button className="ghostbtn lt-stop" onClick={onStop}>End</button></div>
+      {!me && <p>Turn on location so Busline can follow your trip.</p>}
+      {v && v.phase === 'walk' && (
+        <>
+          <p className="lt-big">Walk to {v.target}</p>
+          <p className="muted">{v.distanceM} m{v.line ? <><span className="dot" />{eta !== null ? `next ${name(v.line)} in ${Math.max(0, Math.round(eta / 60))} min` : `then the ${name(v.line)}`}</> : ''}</p>
+        </>
+      )}
+      {v && v.phase === 'wait' && (
+        <>
+          <p className="lt-big">Wait here for the {name(v.line)}</p>
+          <p className="muted">{eta !== null ? <><LiveIcon /> due in {Math.max(0, Math.round(eta / 60))} min</> : 'checking live times…'}<span className="dot" />get off at {v.alightAt}</p>
+        </>
+      )}
+      {v && (v.phase === 'ride' || v.phase === 'alight') && (
+        <>
+          <p className="lt-big">{v.phase === 'alight' ? `Get off at the next stop: ${v.next}` : `Next stop: ${v.next}`}</p>
+          <p className="muted">Now near {v.now}<span className="dot" />{v.stopsLeft} stop{v.stopsLeft === 1 ? '' : 's'} to {v.alightAt}<span className="dot" />about {v.minutesLeft} min</p>
+          <div className="lt-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(v.fraction * 100)}><span style={{ width: `${Math.round(v.fraction * 100)}%` }} /></div>
+        </>
+      )}
+      {v && v.phase === 'arrived' && <p className="lt-big">You’ve arrived</p>}
+      {p.offRoute && <p className="lt-warn">You seem to be away from this route. Re-plan from here?</p>}
+    </section>
+  );
+}
+
 // ---------------------------------------------------------------- screen
 interface Point { place: Place | null; stay: number } // place null = your location; stay in minutes
 const STAYS = [0, 10, 15, 30, 45, 60, 90];
@@ -339,12 +410,24 @@ export function JourneyScreen({ data, pos, to: initialTo, plan }: { data: Data; 
   const [saving, setSaving] = useState(false);
   const [savedNote, setSavedNote] = useState<string | null>(null);
   const [departAt, setDepartAt] = useState<number>(Date.now());
+  const [tracking, setTracking] = useState(false);
+  useEffect(() => { trackingRef.current = tracking; }, [tracking]);
   const [picking, setPicking] = useState<{ index: number; insert: boolean } | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sel, setSel] = useState<number[]>([]);
 
-  const resolved = points.map((p) => p.place ?? (pos ? { name: 'Your location', lat: pos.lat, lon: pos.lon } : null));
+  // "Your location" is taken once and only refreshed if you move > 400 m (never during a live trip),
+  // so a moving phone doesn't keep replacing the journey you're following
+  const [startPos, setStartPos] = useState<LatLon | null>(pos);
+  useEffect(() => {
+    if (!pos) return;
+    if (!startPos) { setStartPos(pos); return; }
+    const moved = Math.hypot((pos.lon - startPos.lon) * 69400, (pos.lat - startPos.lat) * 111200);
+    if (moved > 400 && !trackingRef.current) setStartPos(pos);
+  }, [pos]); // eslint-disable-line react-hooks/exhaustive-deps
+  const trackingRef = useRef(false);
+  const resolved = points.map((p) => p.place ?? (startPos ? { name: 'Your location', lat: startPos.lat, lon: startPos.lon } : null));
   const to = points[points.length - 1].place!;
   const ready = resolved.every((p) => p && p.lat !== undefined && p.lon !== undefined);
   const vias = points.length - 2;
@@ -410,7 +493,7 @@ export function JourneyScreen({ data, pos, to: initialTo, plan }: { data: Data; 
   };
   const remove = (i: number) => setPoints((ps) => ps.filter((_, j) => j !== i));
   const cycleStay = (i: number) => setPoints((ps) => ps.map((p, j) => (j === i ? { ...p, stay: STAYS[(STAYS.indexOf(p.stay) + 1) % STAYS.length] } : p)));
-  const swap = () => setPoints((ps) => [{ ...ps[1], stay: 0 }, { place: ps[0].place ?? (pos ? { name: 'Your location', lat: pos.lat, lon: pos.lon } : null), stay: 0 }]);
+  const swap = () => setPoints((ps) => [{ ...ps[1], stay: 0 }, { place: ps[0].place ?? (startPos ? { name: 'Your location', lat: startPos.lat, lon: startPos.lon } : null), stay: 0 }]);
   const nameOf = (i: number) => (points[i].place ? points[i].place!.name : 'Your location');
 
   if (picking) {
@@ -444,7 +527,11 @@ export function JourneyScreen({ data, pos, to: initialTo, plan }: { data: Data; 
         <div className="shead-main"><span className="shead-text"><b>{vias ? 'Trip with stops' : `To ${to.name}`}</b><small>Buses and walking</small></span></div>
         {vias === 0 && <button className="iconbtn ghost" aria-label="Swap start and destination" onClick={swap}><ArrowDownUp size={20} /></button>}
       </div>
-      <div className="nlist">
+      {result && tracking && (
+        <div className="livepin"><LiveTrip legs={result.segments.flatMap((sg, i) => sg.journeys[sel[i] ?? 0]?.legs ?? [])} onStop={() => setTracking(false)} /></div>
+      )}
+      <div className="nlist" data-vaul-no-drag>
+        {!tracking && <>
         <ol className="stopedit" aria-label="Trip stops">
           {points.map((p, i) => {
             const first = i === 0, last = i === points.length - 1;
@@ -478,6 +565,7 @@ export function JourneyScreen({ data, pos, to: initialTo, plan }: { data: Data; 
             </label>
           )}
         </div>
+        </>}
 
         {saving && <SavePanel defaultTitle={plan?.title ?? (vias ? `Trip to ${to.name}` : `To ${to.name}`)} when={when} onSave={save} onClose={() => setSaving(false)} />}
         {savedNote && <p className="notice okbox" role="status">{savedNote}</p>}
@@ -486,7 +574,10 @@ export function JourneyScreen({ data, pos, to: initialTo, plan }: { data: Data; 
             {plan ? <><Bell size={16} aria-hidden="true" /> Update saved trip</> : <><BookmarkPlus size={16} aria-hidden="true" /> Save trip and remind me</>}
           </button>
         )}
-        {showCountdown && <LeaveCountdown leaveAt={departAt} j={firstJourney} />}
+        {showCountdown && !tracking && <LeaveCountdown leaveAt={departAt} j={firstJourney} />}
+        {result && !tracking && result.segments[0]?.journeys.length > 0 && (
+          <button className="retry starttrip" onClick={() => setTracking(true)}><Navigation size={17} aria-hidden="true" /> Start live trip</button>
+        )}
         {!ready && !error && <p className="empty">{resolved.some((x) => !x) ? 'Getting your location…' : 'Finding that place…'}</p>}
         {ready && !result && !error && <Searching data={data} to={to} />}
         {error && <div className="notice errbox"><span>Couldn’t plan this trip: {error}.</span></div>}

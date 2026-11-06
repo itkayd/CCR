@@ -38,7 +38,7 @@ function PlanCard({ data, p, issues }: { data: Data; p: SavedPlan; issues: Issue
         </span>
         <span className="plan-text">
           <b>{p.title}</b>
-          <small>{describeWhen(p)}{p.last ? ` · ${p.last.minutes} min` : ''}{p.remind ? ' · reminder on' : ''}</small>
+          <small>{describeWhen(p)}{p.last ? <><span className="dot" />{p.last.minutes} min</> : ''}{p.remind ? <><span className="dot" />reminder on</> : ''}</small>
           <span className="rbadges">
             {(p.last?.routes ?? []).slice(0, 6).map((r) => <span key={r} className="cbadge" style={{ background: badgeColour(data, r) }}>{r}</span>)}
             {mine.length > 0 && <span className="issuechip"><AlertTriangle size={13} aria-hidden="true" /> Service change</span>}
@@ -90,7 +90,9 @@ export function UpdatesScreen({ data, nearbyLines }: { data: Data; nearbyLines: 
   const { back, openRoute } = useStore();
   const plans = usePlans();
   const yourLines = useMemo(() => [...new Set([...plans.flatMap((p) => p.last?.routes ?? []), ...recentRoutes()])], [plans]);
-  const [tab, setTab] = useState<'yours' | 'near'>(yourLines.length ? 'yours' : 'near');
+  const allIssues = useIssues([...new Set([...yourLines, ...nearbyLines])]).filter((i) => i.now);
+  const yoursHasIssues = allIssues.some((i) => yourLines.includes(i.line));
+  const [tab, setTab] = useState<'yours' | 'near'>(yourLines.length && yoursHasIssues ? 'yours' : 'near');
   const lines = tab === 'yours' ? yourLines : nearbyLines;
   const issues = useIssues(lines);
   const byLine = new Map<string, Issue[]>();
@@ -106,9 +108,9 @@ export function UpdatesScreen({ data, nearbyLines }: { data: Data; nearbyLines: 
         <button role="tab" aria-selected={tab === 'yours'} onClick={() => setTab('yours')}>Your routes ({yourLines.length})</button>
         <button role="tab" aria-selected={tab === 'near'} onClick={() => setTab('near')}>Near you ({nearbyLines.length})</button>
       </div>
-      <div className="nlist">
+      <div className="nlist" data-vaul-no-drag>
         {!lines.length && <p className="empty">{tab === 'yours' ? 'Save a trip or open a route and its updates will show here.' : 'No routes near you yet.'}</p>}
-        {lines.length > 0 && !byLine.size && <p className="notice okbox">Good service on all {lines.length} routes.</p>}
+        {lines.length > 0 && !byLine.size && <p className="notice okbox">Good service on {lines.length === 1 ? 'this route' : `all ${lines.length} routes`}.</p>}
         {[...byLine].map(([line, list]) => (
           <article key={line} className="updcard">
             <button className="updhead" onClick={() => openRoute(line)}>
@@ -118,7 +120,7 @@ export function UpdatesScreen({ data, nearbyLines }: { data: Data; nearbyLines: 
             </button>
             {list.map((i, k) => (
               <div key={k} className={`upd${i.now ? ' now' : ''}`}>
-                <span className="upd-kind"><AlertTriangle size={13} aria-hidden="true" /> {i.kind ?? i.status}{i.from ? ` · ${fmt(i.from)} – ${fmt(i.to)}` : ''}</span>
+                <span className="upd-kind"><AlertTriangle size={13} aria-hidden="true" /> {i.kind ?? i.status}{i.from ? <><span className="dot" />{fmt(i.from)} – {fmt(i.to)}</> : ''}</span>
                 <p>{i.reason}</p>
               </div>
             ))}

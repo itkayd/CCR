@@ -76,7 +76,7 @@ export function describeWhen(p: SavedPlan): string {
   const d = p.when.days;
   const days = !d.length ? (p.when.date ? new Date(londonEpoch(p.when.date, '12:00')).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: TZ }) : '')
     : d.length === 7 ? 'Every day' : d.join() === '1,2,3,4,5' ? 'Weekdays' : d.join() === '0,6' ? 'Weekends' : d.map((x) => DAY_NAMES[x]).join(', ');
-  return `${p.when.mode === 'leave' ? 'Leave' : 'Arrive by'} ${p.when.time} · ${days}`;
+  return `${p.when.mode === 'leave' ? 'Leave' : 'Arrive by'} ${p.when.time}, ${days}`;
 }
 
 export function countdown(ms: number): string {

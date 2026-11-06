@@ -2,6 +2,7 @@
 import { clean, json, tfl } from './_tfl.js';
 
 interface TflStop {
+  modes?: string[];
   naptanId: string; commonName: string; stopLetter?: string; indicator?: string;
   lat: number; lon: number; distance: number;
   lines?: { id: string }[];
@@ -17,18 +18,21 @@ export async function GET(request: Request): Promise<Response> {
   const rlat = lat.toFixed(3), rlon = lon.toFixed(3);
   try {
     const data = await tfl<{ stopPoints: TflStop[] }>('/StopPoint', {
-      lat: rlat, lon: rlon, stopTypes: 'NaptanPublicBusCoachTram', radius: '400', modes: 'bus', returnLines: 'true',
+      lat: rlat, lon: rlon, stopTypes: 'NaptanPublicBusCoachTram,NaptanMetroStation', radius: '400', modes: 'bus,tram', returnLines: 'true',
     });
     const stops = data.stopPoints
+      // metro stations only count when they are tram stops
+      .filter((s) => !s.naptanId.startsWith('940') || (s.modes ?? []).includes('tram'))
       .sort((a, b) => a.distance - b.distance)
       .slice(0, 14)
       .map((s) => ({
         id: s.naptanId,
-        name: clean(s.commonName),
+        name: clean(s.commonName.replace(/ Tram Stop$/, '')),
+        tram: (s.modes ?? []).includes('tram'),
         letter: (s.stopLetter ?? s.indicator ?? '').replace(/^Stop\s+/i, '').replace(/^->/, '→'),
         towards: clean(s.additionalProperties?.find((p) => p.key === 'Towards')?.value),
         lat: s.lat, lon: s.lon,
-        lines: (s.lines ?? []).map((l) => l.id.toUpperCase()),
+        lines: (s.lines ?? []).filter((l) => (s.modes ?? []).includes('tram') || l.id !== 'tram').map((l) => l.id.toUpperCase()),
       }));
     return json({ lat: Number(rlat), lon: Number(rlon), stops });
   } catch (e) {

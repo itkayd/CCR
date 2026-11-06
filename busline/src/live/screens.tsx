@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Bus, Navigation, Repeat2, Star } from 'lucide-react';
+import { ArrowLeft, Bus, MapPin, Navigation, Repeat2, Star } from 'lucide-react';
 import { NEUTRAL } from '../lib/colour';
 import { colourAt, routeSort, type Data, type Route } from '../lib/data';
 import { modeLabels } from '../lib/modes';
@@ -107,6 +107,14 @@ export function RouteScreen({ data, stopHub, id, dir, focusHub }: { data: Data; 
   }, [rows, busAt, id, setOverlay]);
   useEffect(() => () => setOverlay(null), [setOverlay]);
 
+  // you're near one of this route's stops: mark it and say what's next
+  const me = useStore((x) => x.me);
+  const here = useMemo(() => {
+    if (!me || !rows.length) return -1;
+    let bi = -1, bd = 200;
+    rows.forEach((r, i) => { const d = Math.hypot((r.lon - me.lon) * 69400, (r.lat - me.lat) * 111200); if (d < bd) { bd = d; bi = i; } });
+    return bi;
+  }, [me, rows]);
   const list = useRef<HTMLOListElement>(null);
   const scrollTo = (hubId: string) => list.current?.querySelector(`[data-hub="${CSS.escape(hubId)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   useEffect(() => { if (focusHub && rows.length) setTimeout(() => scrollTo(focusHub), 150); }, [focusHub, rows.length]);
@@ -130,7 +138,13 @@ export function RouteScreen({ data, stopHub, id, dir, focusHub }: { data: Data; 
           ))}
         </div>
       )}
-      <div className="nlist">
+      <div className="nlist" data-vaul-no-drag>
+        {here >= 0 && (
+          <button className="herebar" onClick={() => list.current?.querySelector('.tl.here')?.scrollIntoView({ block: 'center', behavior: 'smooth' })} aria-live="polite">
+            <MapPin size={17} aria-hidden="true" />
+            <span><b>You’re near {rows[here].name}</b>{here < rows.length - 1 ? <small>Next: {rows[here + 1].name}<span className="dot" />{rows.length - 1 - here} stops to {rows[rows.length - 1].name}</small> : <small>Last stop</small>}</span>
+          </button>
+        )}
         {interchanges.length > 0 && (
           <section className="ichanges">
             <h4><Repeat2 size={16} aria-hidden="true" /> Best places to change</h4>
@@ -150,14 +164,14 @@ export function RouteScreen({ data, stopHub, id, dir, focusHub }: { data: Data; 
             const buses = busAt.get(r.naptan) ?? [];
             const shown = r.connections.slice(0, 8);
             return (
-              <li key={r.naptan + i} data-hub={r.hubId} className={`tl${r.major ? ' major' : ''}${i === 0 ? ' first' : ''}${i === rows.length - 1 ? ' last' : ''}`} style={{ ['--c' as string]: r.colour }}>
+              <li key={r.naptan + i} data-hub={r.hubId} className={`tl${r.major ? ' major' : ''}${i === 0 ? ' first' : ''}${i === rows.length - 1 ? ' last' : ''}${i === here ? ' here' : ''}`} style={{ ['--c' as string]: r.colour }}>
                 <span className="tl-rail" aria-hidden="true"><span className="tl-dot" /></span>
                 <div className="tl-body">
                   {buses.length > 0 && (
                     <span className="busnow"><Bus size={14} aria-hidden="true" /> Bus {mins(Math.min(...buses.map((b) => b.eta)))} away</span>
                   )}
                   <button className="tl-name" onClick={() => r.hubId && openPlace(r.hubId)}>
-                    {r.name}{r.letter && <span className="letter">{r.letter}</span>}
+                    {r.name}{r.letter && <span className="letter">{r.letter}</span>}{i === here && <span className="youhere">You’re here</span>}
                   </button>
                   {r.major && r.hub && (
                     <span className="tl-tag"><Star size={12} aria-hidden="true" /> Interchange{r.hub.rail?.length ? <><span className="dot" />{modeLabels(r.hub.rail).join(', ')}</> : ''}</span>
@@ -204,10 +218,10 @@ export function PlaceScreen({ data, stopHub, hub }: { data: Data; stopHub: Map<s
         <span className={`disc${h.major ? '' : ' minor'}`} style={{ background: h.colour }} />
         <span className="shead-text">
           <b>{h.name}</b>
-          <small>{routes.length} route{routes.length === 1 ? '' : 's'}{h.rail?.length ? <><span className="dot" />{modeLabels(h.rail).join(' · ')}</> : ''}</small>
+          <small>{routes.length} route{routes.length === 1 ? '' : 's'}{h.rail?.length ? <><span className="dot" />{modeLabels(h.rail).join(', ')}</> : ''}</small>
         </span>
       </Header>
-      <div className="nlist">
+      <div className="nlist" data-vaul-no-drag>
         <button className="directions" onClick={() => openJourney({ name: h.name, lat: h.lat, lon: h.lon })}>
           <Navigation size={18} aria-hidden="true" /> Directions to {h.name}
         </button>

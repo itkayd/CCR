@@ -87,3 +87,9 @@ test('arrive by: leaves early enough to make it', () => {
   assert.ok(t.departOffset + t.seconds <= 60, `arrives by the target (${Math.round((t.departOffset + t.seconds) / 60)} min late at most 1)`);
   assert.ok(t.departOffset + t.seconds >= -20 * 60, 'does not leave absurdly early');
 });
+
+test('trams: Wimbledon to East Croydon can use the tram', () => {
+  const plans = R.options({ lat: 51.4214, lon: -0.2064 }, { lat: 51.3754, lon: -0.0927 }, { clock: noon, day: 3 });
+  const usesTram = plans.some((p) => p.legs.some((l) => l.mode === 'bus' && l.route === 'TRAM'));
+  assert.ok(usesTram, 'a tram option is offered');
+});

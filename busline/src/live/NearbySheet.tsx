@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Drawer } from 'vaul';
-import { Bus, Clock, MapPin, Navigation, Search, X } from 'lucide-react';
+import { Bus, Clock, MapPin, Navigation, Search, TramFront, X } from 'lucide-react';
 import { NEUTRAL } from '../lib/colour';
-import { colourAt, routeSort, type Data } from '../lib/data';
+import { colourAt, isTram, lineLabel, routeSort, TRAM_COLOUR, type Data } from '../lib/data';
 import { useStore } from '../store/store';
 import { distM, type Arrival, type LatLon, type LocState, type NearbyStop } from './api';
 import { loadRouteDetail, PlaceScreen, RouteScreen, type RouteDetail } from './screens';
@@ -55,7 +55,7 @@ export function buildCards(data: Data, stopHub: Map<string, string>, pos: LatLon
     rows.sort((a, b) => (a.etas[0] ?? 1e9) - (b.etas[0] ?? 1e9));
     const route = data.routes.get(line);
     const hub = stopHub.get(rows[0].stop.id);
-    const colour = route && hub ? colourAt(route, hub, data.hubs) : route?.via[0] ? data.hubs.get(route.via[0])!.colour! : NEUTRAL;
+    const colour = isTram(line) ? TRAM_COLOUR : route && hub ? colourAt(route, hub, data.hubs) : route?.via[0] ? data.hubs.get(route.via[0])!.colour! : NEUTRAL;
     const served = stops.filter((s) => s.lines.includes(line)).sort((a, b) => dist.get(a.id)! - dist.get(b.id)!);
     cards.push({ line, colour, rows: rows.slice(0, 2), nearest: Math.min(...rows.map((r) => dist.get(r.stop.id) ?? 1e9)), live: arrivals !== null, stops: served });
   }
@@ -132,8 +132,8 @@ export function CardView({ card }: { card: Card }) {
   return (
     <article className={`ncard${active ? ' active' : ''}`}>
       <button className="ncard-head" onClick={() => openRoute(card.line, card.rows[0]?.dir || undefined)} aria-label={`Route ${card.line}: stops and connections`}>
-        <Bus size={22} style={{ color: card.colour }} aria-hidden="true" />
-        <span className="nbadge" style={{ background: card.colour }}>{card.line}</span>
+        {isTram(card.line) ? <TramFront size={22} style={{ color: card.colour }} aria-hidden="true" /> : <Bus size={22} style={{ color: card.colour }} aria-hidden="true" />}
+        <span className={`nbadge${isTram(card.line) ? ' tram' : ''}`} style={{ background: card.colour }}>{lineLabel(card.line)}</span>
       </button>
       {rows.map((r) => (
         <button key={r.stop.id + r.dest} className="nrow" onClick={() => openRoute(card.line, r.dir || undefined)}>
@@ -257,7 +257,7 @@ export function NearbySheet({ data, stopHub, pos, locState, stops, error, retry,
             <Drawer.Title className="nband-title">{q ? 'Search' : 'Nearby'}</Drawer.Title>
             {!q && <span className="nband-meta">{time ? <><LiveIcon /> Live<span className="dot" aria-hidden="true" />{time}</> : 'Loading live times…'}</span>}
           </div>
-          <div className="nlist">
+          <div className="nlist" data-vaul-no-drag key={q ? "search" : "nearby"}>
             {q ? <SearchResults data={data} q={q} onPick={() => { setQ(''); setSnap(snaps[1]); }} /> : (
               <>
                 {['denied', 'outside', 'unsupported', 'slow'].includes(locState) && (

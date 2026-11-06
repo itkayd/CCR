@@ -56,3 +56,9 @@ export function routeSort(a: string, b: string) {
   const pa = a.match(/^([A-Z]*)(\d*)(.*)$/)!, pb = b.match(/^([A-Z]*)(\d*)(.*)$/)!;
   return pa[1].localeCompare(pb[1]) || (Number(pa[2]) || 0) - (Number(pb[2]) || 0) || pa[3].localeCompare(pb[3]);
 }
+
+/** Trams aren't bus routes: one shared colour and a readable label. */
+export const TRAM_ID = 'TRAM';
+export const TRAM_COLOUR = '#3E8E2B';
+export const isTram = (id: string | null | undefined) => (id ?? '').toUpperCase() === TRAM_ID;
+export const lineLabel = (id: string) => (isTram(id) ? 'Tram' : id);

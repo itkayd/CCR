@@ -20,6 +20,9 @@ const savedProvider = (): MapProvider => {
 interface State {
   mode: Mode;
   stack: Screen[];
+  /** the user's position, shared so any screen can follow it */
+  me: { lat: number; lon: number } | null;
+  setMe: (p: { lat: number; lon: number } | null) => void;
   openJourney: (to: Place, planId?: string) => void;
   openUpdates: () => void;
   /** set while a journey search runs: the map 'searches' the network */
@@ -57,6 +60,8 @@ interface State {
 export const useStore = create<State>((set, get) => ({
   mode: 'live',
   stack: [{ type: 'nearby' }],
+  me: null,
+  setMe: (me) => set({ me }),
   openJourney: (to, planId) => set({ stack: [...get().stack, { type: 'journey', to, planId }], route: null }),
   openUpdates: () => set({ stack: [...get().stack, { type: 'updates' }], route: null }),
   searching: null,

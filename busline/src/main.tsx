@@ -75,6 +75,8 @@ class MapBoundary extends Component<{ children: ReactNode }, { failed: boolean }
 function Live({ data }: { data: Data }) {
   const { pos, state } = useLocation();
   const { stops, error, retry } = useNearby(pos);
+  const setMe = useStore((x) => x.setMe);
+  useEffect(() => { setMe(state === 'ok' ? pos : null); }, [pos, state, setMe]);
   const [stopHub, setStopHub] = useState<Map<string, string>>(new Map());
   useEffect(() => {
     fetch('/data/stops.json').then((r) => r.json()).then((rows: [string, number, number, string][]) => setStopHub(new Map(rows.map((r) => [r[0], r[3]]))));

@@ -74,7 +74,7 @@ function Header({ hub, count, titleAs: Title }: { hub: Hub; count: number; title
 
 function Body({ data, s }: { data: Data; s: NonNullable<ReturnType<typeof useStation>> }) {
   return (
-    <div className="body">
+    <div className="body" data-vaul-no-drag>
       {s.day.length > 0 && <><h3>Day buses</h3>{s.day.map((r) => <RouteRow key={r.id} r={r} hub={s.hub} data={data} />)}</>}
       {s.night.length > 0 && <><h3>Night buses</h3>{s.night.map((r) => <RouteRow key={r.id} r={r} hub={s.hub} data={data} />)}</>}
       {s.school.length > 0 && <><h3>School / limited service</h3>{s.school.map((r) => <RouteRow key={r.id} r={r} hub={s.hub} data={data} />)}</>}
