@@ -68,7 +68,7 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
   const map = useRef<MLMap | null>(null);
   const [ready, setReady] = useState(0); // bumps after each style (re)load
   const [bearing, setBearing] = useState(0);
-  const { route, theme, sheetInset, recentre, provider, overlay, focus } = useStore();
+  const { route, theme, sheetInset, recentre, provider, overlay, focus, searching, trip } = useStore();
   const systemDark = useMedia('(prefers-color-scheme: dark)');
   const mode = resolvedTheme(theme);
   void systemDark; // re-render on system theme change
@@ -132,10 +132,12 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
       add('me', fc([]));
       add('route-stops', fc([]));
       add('buses', fc([]));
+      add('trip', fc([]));
+      add('trip-points', fc([]));
       // Draw routes above the whole base map: some styles (OpenFreeMap Dark) put road
       // casings after their first label layer, which hid the lines.
       const before = undefined;
-      const width = ['interpolate', ['linear'], ['zoom'], 10, 1, 13, 2, 16, 3.5, 18, 5] as unknown as number;
+      const width = ROUTE_WIDTH as unknown as number;
       if (!m.getLayer('routes-plain')) {
         m.addLayer({ id: 'routes-plain', type: 'line', source: 'routes', filter: ['==', ['get', 'm'], 0],
           layout: { 'line-cap': 'round', 'line-join': 'round' },
@@ -180,6 +182,20 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
         m.addLayer({ id: 'buses-label', type: 'symbol', source: 'buses',
           layout: { 'text-field': ['get', 'label'], 'text-font': FONT_BOLD, 'text-size': ['interpolate', ['linear'], ['zoom'], 11, 8, 16, 11], 'text-allow-overlap': true, 'text-ignore-placement': true },
           paint: { 'text-color': '#FFFFFF' } });
+        // a planned journey: bus legs in route colour, walking legs dashed
+        m.addLayer({ id: 'trip-case', type: 'line', source: 'trip', layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': PAPER[t], 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 6, 16, 12] } });
+        m.addLayer({ id: 'trip-walk', type: 'line', source: 'trip', filter: ['==', ['get', 'mode'], 'walk'], layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': ['get', 'c'], 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 2.5, 16, 5], 'line-dasharray': [0.1, 1.8] } });
+        m.addLayer({ id: 'trip-bus', type: 'line', source: 'trip', filter: ['==', ['get', 'mode'], 'bus'], layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': ['get', 'c'], 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 8] } });
+        m.addLayer({ id: 'trip-points', type: 'circle', source: 'trip-points',
+          paint: {
+            'circle-radius': ['case', ['==', ['get', 'kind'], 'end'], 9, 6.5],
+            'circle-color': ['case', ['==', ['get', 'kind'], 'end'], ['get', 'c'], PAPER[t]],
+            'circle-stroke-color': ['case', ['==', ['get', 'kind'], 'end'], PAPER[t], ['get', 'c']],
+            'circle-stroke-width': 3.5,
+          } });
         m.addLayer({ id: 'majors', type: 'circle', source: 'majors',
           paint: {
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 3.5, 13, 6, 16, 9],
@@ -230,6 +246,53 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
     (m.getSource('buses') as GeoJSONSource | undefined)?.setData(fc((overlay?.buses ?? []).map((b) => pt(b.lon, b.lat + 0.00012, { c: b.c, label: b.label }))));
     if (m.getLayer('stops')) m.setPaintProperty('stops', 'icon-opacity', overlay ? 0.35 : 1);
   }, [overlay, layersReady]);
+
+  // journey search: light up the network group by group while TfL plans the trip
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !layersReady || !searching) return;
+    const { from, to } = searching;
+    if (to.lat !== undefined && to.lon !== undefined) {
+      const b = new maplibregl.LngLatBounds([from.lon, from.lat], [from.lon, from.lat]).extend([to.lon, to.lat]);
+      m.fitBounds(b, { padding: { top: 90, bottom: 40, left: 40, right: 40 }, duration: 900, maxZoom: 14 });
+    } else m.flyTo({ center: [from.lon, from.lat], zoom: 11.5, duration: 900 });
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let ph = 0;
+    const paint = () => {
+      const lit = ['==', ['get', 'k'], ph], trail = ['==', ['get', 'k'], (ph + 7) % 8];
+      for (const id of ['routes', 'routes-plain']) {
+        if (!m.getLayer(id)) continue;
+        m.setPaintProperty(id, 'line-opacity', reduce ? 0.8 : ['case', lit, 1, trail, 0.7, 0.2]);
+        m.setPaintProperty(id, 'line-width', reduce ? ROUTE_WIDTH : ['interpolate', ['linear'], ['zoom'], 10, ['case', lit, 2.6, 1], 14, ['case', lit, 5, 2.4], 17, ['case', lit, 8, 3.5]]);
+      }
+      ph = (ph + 1) % 8;
+    };
+    paint();
+    const timer = reduce ? 0 : window.setInterval(paint, 120);
+    return () => {
+      clearInterval(timer);
+      for (const id of ['routes', 'routes-plain']) if (m.getLayer(id)) m.setPaintProperty(id, 'line-width', ROUTE_WIDTH);
+      // a journey result may already be showing: keep the network faded behind it
+      if (useStore.getState().trip) { m.setPaintProperty('routes', 'line-opacity', 0.1); m.setPaintProperty('routes-plain', 'line-opacity', 0.1); }
+      else applySelection(m, useStore.getState().route);
+    };
+  }, [searching, layersReady]);
+
+  // the chosen journey
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !layersReady) return;
+    (m.getSource('trip') as GeoJSONSource | undefined)?.setData(fc((trip?.legs ?? []).filter((l) => l.path.length > 1).map((l) =>
+      ({ type: 'Feature', properties: { mode: l.mode, c: l.c }, geometry: { type: 'LineString', coordinates: l.path } }))));
+    (m.getSource('trip-points') as GeoJSONSource | undefined)?.setData(fc((trip?.points ?? []).map((p) => pt(p.lon, p.lat, { kind: p.kind, c: p.c }))));
+    if (trip) {
+      m.setPaintProperty('routes', 'line-opacity', 0.1);
+      m.setPaintProperty('routes-plain', 'line-opacity', 0.1);
+      const b = new maplibregl.LngLatBounds();
+      for (const l of trip.legs) for (const c of l.path) b.extend(c);
+      if (!b.isEmpty()) m.fitBounds(b, { padding: { top: 90, bottom: 30, left: 30, right: 30 }, duration: 700, maxZoom: 15.5 });
+    } else if (!useStore.getState().searching) applySelection(m, useStore.getState().route);
+  }, [trip, layersReady]);
 
   // fly to a place
   useEffect(() => {
@@ -298,6 +361,8 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
     </div>
   );
 }
+
+const ROUTE_WIDTH = ['interpolate', ['linear'], ['zoom'], 10, 1, 13, 2, 16, 3.5, 18, 5];
 
 function applySelection(m: MLMap, route: string | null) {
   if (!m.getLayer('routes')) return;

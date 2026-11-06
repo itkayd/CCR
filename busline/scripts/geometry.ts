@@ -47,9 +47,11 @@ function main() {
 
   const features: any[] = [];
   let vertices = 0;
+  let routeIndex = -1;
   for (const l of lines) {
     const route = routes.find((r) => r.id === l.id.toUpperCase());
     if (!route) continue;
+    routeIndex++; // animation group: k = routeIndex % 8
     const dir = read(`/Line/${l.id}/Route/Sequence/outbound`) ? 'outbound' : 'inbound';
     const seq = read(`/Line/${l.id}/Route/Sequence/${dir}`);
     for (const sps of seq.stopPointSequences ?? []) for (const p of sps.stopPoint ?? []) stopPos.set(p.id, [p.lon, p.lat]);
@@ -112,7 +114,7 @@ function main() {
       vertices += piece.length;
       features.push({
         type: 'Feature',
-        properties: { r: route.id, c: coloured ? mix(stopColour[s], stopColour[s + 1], 0.5) : NEUTRAL, m: coloured ? 1 : 0, n: route.night ? 1 : 0 },
+        properties: { r: route.id, c: coloured ? mix(stopColour[s], stopColour[s + 1], 0.5) : NEUTRAL, m: coloured ? 1 : 0, n: route.night ? 1 : 0, k: routeIndex % 8 },
         geometry: { type: 'LineString', coordinates: piece },
       });
     }

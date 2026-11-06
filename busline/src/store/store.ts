@@ -5,7 +5,9 @@ export type Mode = 'live' | 'schematic';
 /** Screens shown in the live sheet; the last one in the stack is visible. */
 export interface Overlay { stops: { lon: number; lat: number; c: string; hub: string }[]; buses: { lon: number; lat: number; c: string; label: string }[] }
 export interface Focus { lat: number; lon: number; zoom: number }
-export type Screen = { type: 'nearby' } | { type: 'route'; id: string; dir?: string; focusHub?: string } | { type: 'place'; hub: string };
+export interface Place { name: string; lat?: number; lon?: number; query?: string }
+export interface Trip { legs: { mode: string; c: string; path: [number, number][] }[]; points: { lon: number; lat: number; kind: 'start' | 'end' | 'change'; c: string }[] }
+export type Screen = { type: 'journey'; to: Place } | { type: 'nearby' } | { type: 'route'; id: string; dir?: string; focusHub?: string } | { type: 'place'; hub: string };
 export type MapProvider = 'google' | 'openfreemap' | 'versatiles';
 const PROVIDER_KEY = 'busline.mapProvider';
 const savedProvider = (): MapProvider => {
@@ -15,6 +17,12 @@ const savedProvider = (): MapProvider => {
 interface State {
   mode: Mode;
   stack: Screen[];
+  openJourney: (to: Place) => void;
+  /** set while a journey search runs: the map 'searches' the network */
+  searching: { from: { lat: number; lon: number }; to: Place } | null;
+  setSearching: (s: State['searching']) => void;
+  trip: Trip | null;
+  setTrip: (t: Trip | null) => void;
   overlay: Overlay | null;
   setOverlay: (o: Overlay | null) => void;
   focus: Focus | null;
@@ -44,6 +52,11 @@ interface State {
 export const useStore = create<State>((set, get) => ({
   mode: 'live',
   stack: [{ type: 'nearby' }],
+  openJourney: (to) => set({ stack: [...get().stack, { type: 'journey', to }], route: null }),
+  searching: null,
+  setSearching: (searching) => set({ searching }),
+  trip: null,
+  setTrip: (trip) => set({ trip }),
   overlay: null,
   setOverlay: (overlay) => set({ overlay }),
   focus: null,

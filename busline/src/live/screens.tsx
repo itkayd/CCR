@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Bus, Repeat2, Star } from 'lucide-react';
+import { ArrowLeft, Bus, Navigation, Repeat2, Star } from 'lucide-react';
 import { NEUTRAL } from '../lib/colour';
 import { colourAt, routeSort, type Data, type Route } from '../lib/data';
 import { modeLabels } from '../lib/modes';
@@ -181,7 +181,7 @@ export function RouteScreen({ data, stopHub, id, dir, focusHub }: { data: Data; 
 
 // ---------------------------------------------------------------- place screen
 export function PlaceScreen({ data, stopHub, hub }: { data: Data; stopHub: Map<string, string>; hub: string }) {
-  const { back, openRoute, setFocus } = useStore();
+  const { back, openRoute, setFocus, openJourney } = useStore();
   const h = data.hubs.get(hub);
   const pos = useMemo(() => (h ? { lat: h.lat, lon: h.lon } : null), [h]);
   const { stops } = useNearby(pos);
@@ -206,6 +206,9 @@ export function PlaceScreen({ data, stopHub, hub }: { data: Data; stopHub: Map<s
         </span>
       </Header>
       <div className="nlist">
+        <button className="directions" onClick={() => openJourney({ name: h.name, lat: h.lat, lon: h.lon })}>
+          <Navigation size={18} aria-hidden="true" /> Directions to {h.name}
+        </button>
         <h4 className="sec">Live departures</h4>
         {!stops && <p className="empty">Loading live times…</p>}
         {stops && !cards.length && <p className="empty">No live departures right now.</p>}
