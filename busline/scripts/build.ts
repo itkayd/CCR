@@ -9,6 +9,9 @@ import { cachePath } from './lib/http.ts';
 import { RAIL_MODES } from './fetch.ts';
 import { assignColours } from './lib/palette.ts';
 import { distM, project } from './lib/geo.ts';
+import { MIN_SEP, PHONE_WIDTH_PX, minMajorSep, spreadMajors } from './lib/spread.ts';
+import { cleanName } from '../src/lib/names.ts';
+import { formatModes } from '../src/lib/modes.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT = join(here, '..', 'public', 'data');
@@ -31,7 +34,7 @@ const read = (path: string) => {
 
 // ---------------------------------------------------------------- types
 interface Stop { id: string; name: string; lat: number; lon: number; ics: string; area: string }
-interface RailStation { name: string; lat: number; lon: number; ics: string; top: string; modes: Set<string> }
+interface RailStation { name: string; lat: number; lon: number; ics: string; top: string; modes: Set<string>; zone?: number }
 
 // ---------------------------------------------------------------- names
 const STATION_WORDS = /\b(bus station|underground station|rail station|dlr station|overground station|tram stop|station|stn|interchange)\b/g;
@@ -50,7 +53,7 @@ export function stem(name: string): string {
 }
 
 function railDisplayName(name: string) {
-  return name
+  return cleanName(name)
     .replace(/\(.*?\)/g, '')
     .replace(/\b(Underground|Rail|DLR|Overground|Tram|Elizabeth line) Station\b/gi, '')
     .replace(/\bStation\b|\bTram Stop\b/gi, '')
@@ -90,11 +93,13 @@ function main() {
       const key = s.icsId || s.id;
       let r = railByIcs.get(key);
       if (!r) {
-        r = { name: railDisplayName(s.name), lat: s.lat, lon: s.lon, ics: s.icsId, top: s.topMostParentId, modes: new Set() };
+        r = { name: cleanName(railDisplayName(s.name)), lat: s.lat, lon: s.lon, ics: s.icsId, top: s.topMostParentId, modes: new Set() };
         railByIcs.set(key, r);
         rail.push(r);
       }
       for (const m of s.modes ?? []) if (m !== 'bus') r.modes.add(m);
+      const z = Math.min(...String(s.zone ?? '').split(/[^0-9]+/).filter(Boolean).map(Number));
+      if (Number.isFinite(z)) r.zone = Math.min(r.zone ?? 99, z);
       if (s.topMostParentId?.startsWith('HUB')) railByTop.set(s.topMostParentId, r);
     }
   }
@@ -112,7 +117,7 @@ function main() {
       for (const sps of seq.stopPointSequences ?? [])
         for (const p of sps.stopPoint ?? [])
           if (!stops.has(p.id))
-            stops.set(p.id, { id: p.id, name: p.name, lat: p.lat, lon: p.lon, ics: p.icsId, area: p.topMostParentId || p.id });
+            stops.set(p.id, { id: p.id, name: cleanName(p.name), lat: p.lat, lon: p.lon, ics: p.icsId, area: p.topMostParentId || p.id });
       const seqs = (seq.orderedLineRoutes ?? [])
         .filter((r: any) => !r.serviceType || r.serviceType === 'Regular')
         .map((r: any) => (r.naptanIds as string[]).filter((id) => stops.has(id)));
@@ -233,7 +238,7 @@ function main() {
   const rootRail = new Map<string, RailStation>();
   for (const r of rail) if (uf.p.has(railKey(r))) rootRail.set(uf.find(railKey(r)), r);
 
-  interface Hub { id: string; name: string; lat: number; lon: number; rail: string[]; stops: string[]; routes: Set<string> }
+  interface Hub { id: string; name: string; lat: number; lon: number; rail: string[]; zone?: number; stops: string[]; routes: Set<string> }
   const hubs = new Map<string, Hub>();
   const stopHub = new Map<string, string>();
   const usedIds = new Set<string>();
@@ -252,7 +257,7 @@ function main() {
     let id = slug(name);
     if (usedIds.has(id)) id = `${id}-${ss.map((s) => s.area).sort()[0].slice(-6).toLowerCase()}`;
     usedIds.add(id);
-    hubs.set(id, { id, name, lat, lon, rail: r ? [...r.modes].sort() : [], stops: ss.map((s) => s.id), routes: new Set() });
+    hubs.set(id, { id, name, lat, lon, rail: r ? [...r.modes].sort() : [], zone: r?.zone, stops: ss.map((s) => s.id), routes: new Set() });
     for (const s of ss) stopHub.set(s.id, id);
   }
 
@@ -289,8 +294,8 @@ function main() {
       id: l.id.toUpperCase(),
       night: /^n\d/i.test(l.id),
       school: /^6\d\d$/.test(l.id),
-      a: clean(sec?.originationName) || first,
-      b: clean(sec?.destinationName) || last,
+      a: cleanName(sec?.originationName) || first,
+      b: cleanName(sec?.destinationName) || last,
       path,
       inboundOnly,
     });
@@ -313,8 +318,12 @@ function main() {
 
   // ---- colours
   const centre = { lat: 51.5073, lon: -0.1276 }; // Charing Cross
+  // previous colours, for the before/after report
+  const prevFile = process.env.PREV_HUBS || join(OUT, 'hubs.json');
+  const prev = new Map<string, string>();
+  if (existsSync(prevFile)) for (const h of JSON.parse(readFileSync(prevFile, 'utf8'))) if (h.colour) prev.set(h.id, h.colour);
   const colourResult = assignColours(
-    majors.map((h) => ({ id: h.id, lat: h.lat, lon: h.lon })),
+    majors.map((h) => ({ id: h.id, lat: h.lat, lon: h.lon, zone1: h.zone === 1 || (h.zone === undefined && distM(h, centre) < 2500) })),
     centre,
     override.colours,
   );
@@ -323,10 +332,14 @@ function main() {
   mkdirSync(OUT, { recursive: true });
   const majorSet = new Set(majors.map((h) => h.id));
   const usedHubs = new Set(routes.flatMap((r) => [...r.path, ...r.inboundOnly]));
-  const hubOut = [...hubs.values()]
-    .filter((h) => usedHubs.has(h.id))
+  const placed = [...hubs.values()].filter((h) => usedHubs.has(h.id));
+  const xy = spreadMajors(placed.map((h) => {
+    const [x, y] = project(h.lat, h.lon);
+    return { id: h.id, x, y, major: majorSet.has(h.id) };
+  }));
+  const hubOut = placed
     .map((h) => {
-      const [x, y] = project(h.lat, h.lon);
+      const [x, y] = xy.get(h.id)!;
       return {
         id: h.id,
         name: h.name,
@@ -337,6 +350,7 @@ function main() {
         major: majorSet.has(h.id),
         ...(majorSet.has(h.id) ? { colour: colourResult.colours.get(h.id), area: colourResult.area.get(h.id) } : {}),
         ...(h.rail.length ? { rail: h.rail } : {}),
+        ...(h.zone ? { zone: h.zone } : {}),
         routes: [...h.routes].map((r) => r.toUpperCase()).sort(routeSort),
       };
     })
@@ -360,15 +374,30 @@ function main() {
   console.log(`\nroutes: ${routeOut.length} (${routeOut.filter((r) => r.night).length} night, ${routeOut.filter((r) => r.school).length} school)`);
   console.log(`stops: ${stops.size}  hubs: ${hubOut.length}  rail-linked hubs: ${hubOut.filter((h) => h.rail).length}`);
   console.log(`majors: ${majors.length}  (rail≥${MAJOR_RAIL_MIN} or any≥${MAJOR_ANY_MIN}; overrides +${override.add.length} −${override.remove.length})`);
-  console.log(`colour check: min neighbour ΔOK = ${colourResult.minNeighbour.toFixed(3)} (threshold ${colourResult.threshold}), worst pair: ${colourResult.worstPair.join(' / ')}`);
-  if (colourResult.violations.length) console.log(`  neighbour pairs under threshold: ${colourResult.violations.map((v) => v.join('~')).join(', ')}`);
+  console.log(`colour check: min neighbour ΔE = ${(colourResult.minNeighbour * 100).toFixed(1)} (target ${colourResult.threshold * 100}), worst pair: ${colourResult.worstPair.join(' / ')}`);
+  {
+    const ms = hubOut.filter((h) => h.major);
+    console.log(`layout: min major separation ${minMajorSep(ms).toFixed(1)} units (needs ≥ ${MIN_SEP.toFixed(1)} for no overlap at Fit on a ${PHONE_WIDTH_PX} px phone)`);
+    console.log(`colour pairs within 3 km: ${colourResult.pairCount}, under ΔE ${colourResult.threshold * 100}: ${colourResult.violations.length}`);
+  }
   console.log(`contrast: min ${colourResult.minContrast.toFixed(2)}:1 vs map backgrounds`);
   const byArea = new Map<string, typeof review>();
   for (const m of review) (byArea.get(m.area!) ?? byArea.set(m.area!, []).get(m.area!)!).push(m);
   for (const [area, list] of byArea) {
     console.log(`\n${area} (${list.length})`);
-    for (const m of list) console.log(`  ${m.colour}  ${String(m.routes).padStart(3)}  ${m.name}${m.rail.length ? '  [' + m.rail.join(',') + ']' : ''}`);
+    for (const m of list) console.log(`  ${m.colour}  ${String(m.routes).padStart(3)}  ${m.name}${m.rail.length ? '  · ' + formatModes(m.rail) : ''}`);
   }
+
+  // before/after for the stations whose colour changed
+  const report: string[] = [`Colour changes (previous build → this build); ΔE = OKLab ×100 to closest neighbour within 3 km`];
+  for (const m of review) {
+    const before = prev.get(m.id);
+    if (before === m.colour) continue;
+    const zone1 = colourResult.zone1.has(m.id) ? 'Z1' : '  ';
+    report.push(`  ${zone1} ${(before ?? '(new)').padEnd(7)} → ${m.colour}   ΔE ${String((before && colourResult.nearest(m.id, prev)?.toFixed(1)) || '—').padStart(5)} → ${String(colourResult.nearest(m.id)?.toFixed(1) ?? "—").padStart(5)}   ${m.name}`);
+  }
+  writeFileSync(join(here, 'colour-report.txt'), report.join('\n') + '\n');
+  console.log('\n' + report.join('\n'));
 }
 
 function loadOverride(): { add: string[]; remove: string[]; colours: Record<string, string> } {
@@ -378,7 +407,6 @@ function loadOverride(): { add: string[]; remove: string[]; colours: Record<stri
   return { add: o.add ?? [], remove: o.remove ?? [], colours: o.colours ?? {} };
 }
 
-const clean = (s?: string) => (s ?? '').replace(/&harr;|&amp;/g, (m) => (m === '&amp;' ? '&' : '↔')).replace(/\s+/g, ' ').trim();
 const slug = (s: string) => s.toLowerCase().replace(/&/g, 'and').replace(/['’.]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const round = (n: number, d: number) => Math.round(n * 10 ** d) / 10 ** d;
 export function routeSort(a: string, b: string) {

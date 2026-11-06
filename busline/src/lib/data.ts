@@ -2,7 +2,7 @@ import { NEUTRAL, mix } from './colour';
 
 export interface Hub {
   id: string; name: string; lat: number; lon: number; x: number; y: number;
-  major: boolean; colour?: string; area?: string; rail?: string[]; routes: string[];
+  major: boolean; colour?: string; area?: string; rail?: string[]; zone?: number; routes: string[];
 }
 export interface Route {
   id: string; night: boolean; school: boolean; a: string; b: string;

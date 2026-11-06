@@ -2,141 +2,264 @@
 routes: 675 (64 night, 67 school)
 stops: 19985  hubs: 10300  rail-linked hubs: 547
 majors: 120  (rail≥10 or any≥20; overrides +0 −0)
-colour check: min neighbour ΔOK = 0.070 (threshold 0.07), worst pair: ravenscourt-park / white-city
+colour check: min neighbour ΔE = 12.1 (target 12), worst pair: st-pancras-international / euston-square
+layout: min major separation 37.3 units (needs ≥ 37.3 for no overlap at Fit on a 390 px phone)
+colour pairs within 3 km: 528, under ΔE 12: 0
 contrast: min 3.00:1 vs map backgrounds
 
-central (36)
-  #7449D2   42  Charing Cross  [national-rail,tube]
-  #8840C6   36  Elephant & Castle  [national-rail,tube]
-  #9C4297   33  Aldwych / Drury Lane
-  #717FFF   30  Tottenham Court Road  [elizabeth-line,tube]
-  #7A6477   28  Lambeth North  [tube]
-  #A72FA1   28  Oxford Circus  [tube]
-  #39659B   26  Holborn  [tube]
-  #9670FC   25  Marble Arch  [tube]
-  #7E6CF7   24  Victoria  [national-rail,tube]
-  #5D617A   24  Hyde Park Corner  [tube]
-  #6E7F95   24  Monument  [tube]
-  #9B7998   22  Piccadilly Circus  [tube]
-  #007AED   21  Waterloo  [national-rail,tube]
-  #A1529B   21  Liverpool Street  [elizabeth-line,national-rail,overground,tube]
-  #76889E   20  City Thameslink  [national-rail]
-  #CF57C8   19  St. Paul's  [tube]
-  #BB44B4   19  Westminster  [tube]
-  #6588B6   19  Angel  [tube]
-  #1463DC   18  Baker Street  [tube]
-  #0C84FA   17  London Bridge  [national-rail,tube]
-  #B278AC   16  Warren Street  [tube]
-  #9837B5   15  St Pancras International  [national-rail]
-  #A132A9   15  Knightsbridge  [tube]
-  #BC52CB   15  Vauxhall  [national-rail,tube]
-  #805A95   15  Edgware Road  [tube]
-  #B464E8   14  Euston Square  [tube]
-  #9479E7   14  Bank  [dlr,tube]
-  #546E8E   13  Mornington Crescent  [tube]
-  #B873B2   13  Sloane Square  [tube]
-  #3986E4   13  Kennington  [tube]
-  #206CE7   12  Old Street  [national-rail,tube]
-  #5C88C1   12  Marylebone  [national-rail,tube]
-  #0061BE   11  Green Park  [tube]
-  #C467BD   10  Borough  [tube]
-  #2063B0   10  Mansion House  [tube]
-  #4959DD   10  Goodge Street  [tube]
+central (39)
+  #1F51FE   42  Charing Cross  · Tube · National Rail
+  #0089EA   36  Elephant & Castle  · Tube · National Rail
+  #2C9600   33  Aldwych / Drury Lane
+  #0097AA   30  Tottenham Court Road  · Elizabeth line · Tube
+  #39659B   28  Lambeth North  · Tube
+  #717FFF   28  Oxford Circus  · Tube
+  #9B5164   26  Holborn  · Tube
+  #F224B2   25  Marble Arch  · Tube
+  #886600   24  Victoria  · Tube · National Rail
+  #F70054   24  Hyde Park Corner  · Tube
+  #AC46FF   24  Monument  · Tube
+  #C846F8   22  Piccadilly Circus  · Tube
+  #C700A0   21  Waterloo  · Tube · National Rail
+  #4D44FD   21  Liverpool Street  · Elizabeth line · Tube · Overground · National Rail
+  #FF1C7B   20  City Thameslink  · National Rail
+  #676815   19  St Paul's  · Tube
+  #8547BD   19  Westminster  · Tube
+  #B90094   19  Angel  · Tube
+  #B100AC   18  Baker Street  · Tube
+  #209993   17  London Bridge  · Tube · National Rail
+  #6663A3   17  Shoreditch High Street  · Overground
+  #B500A0   16  Aldgate East  · Tube
+  #B278AC   16  Warren Street  · Tube
+  #AB4261   15  Knightsbridge  · Tube
+  #3E9F24   15  Vauxhall  · Tube · National Rail
+  #0061BE   15  Edgware Road  · Tube
+  #7E2BED   14  Euston Square  · Tube
+  #D91000   14  Bank  · Tube · DLR
+  #007CB7   13  Sloane Square  · Tube
+  #FA002A   13  Kennington  · Tube
+  #FF3624   13  Notting Hill Gate  · Tube
+  #BE7100   12  Old Street  · Tube · National Rail
+  #00A149   12  Marylebone  · Tube · National Rail
+  #A37300   12  High Street Kensington  · Tube
+  #117555   11  Green Park  · Tube
+  #B97500   10  Borough  · Tube
+  #C66AAA   10  Mansion House  · Tube
+  #993FFC   10  South Kensington  · Tube
+  #D56E49   10  Goodge Street  · Tube
 
-east (17)
-  #F4455D   28  Lewisham  [dlr,national-rail]
-  #BE5A54   23  Romford  [elizabeth-line,national-rail,overground]
-  #A84E25   22  Stratford  [dlr,elizabeth-line,international-rail,national-rail,overground,tube]
-  #CF7346   21  Woolwich  [elizabeth-line]
-  #D54507   21  Ilford  [elizabeth-line,national-rail]
-  #A65100   20  New Cross Gate  [national-rail,overground]
-  #AA474F   16  Aldgate East  [tube]
-  #B86426   13  Canning Town  [dlr,tube]
-  #C91400   13  Plumstead  [national-rail]
-  #E45B67   12  Barking  [national-rail,overground,tube]
-  #D26B71   11  Surrey Quays  [overground]
-  #E93954   11  North Greenwich  [cable-car,tube]
-  #D47124   11  Mile End  [tube]
-  #F34F08   10  Canada Water  [overground,tube]
-  #C8063A   10  Beckton  [dlr]
-  #DE2D4B   10  Bow Church  [dlr]
-  #D26F5A   10  Abbey Wood  [elizabeth-line,national-rail]
+east (16)
+  #F83E54   28  Lewisham  · DLR · National Rail
+  #D34635   23  Romford  · Elizabeth line · Overground · National Rail
+  #F73D62   22  Stratford  · Elizabeth line · Tube · Overground · DLR · National Rail · International
+  #B34300   21  Woolwich  · Elizabeth line
+  #D60B49   21  Ilford  · Elizabeth line · National Rail
+  #A15500   20  New Cross Gate  · Overground · National Rail
+  #A54B55   13  Canning Town  · Tube · DLR
+  #CE6E77   13  Plumstead  · National Rail
+  #BB7234   12  Barking  · Tube · Overground · National Rail
+  #C80042   11  Surrey Quays  · Overground
+  #F84713   11  North Greenwich  · Tube · Cable car
+  #AE4440   11  Mile End  · Tube
+  #F05400   10  Canada Water  · Tube · Overground
+  #EF4B67   10  Beckton  · DLR
+  #D76F00   10  Bow Church  · DLR
+  #CA0E00   10  Abbey Wood  · Elizabeth line · National Rail
 
 south-east (14)
-  #A87B5D   26  East Croydon  [national-rail,tram]
-  #62778B   24  West Croydon  [national-rail,overground,tram]
-  #7C6660   24  Brixton  [national-rail,tube]
-  #8D6F44   22  Bromley North  [national-rail]
-  #918473   22  Peckham Rye  [national-rail,overground]
-  #6D8C99   18  Streatham Hill  [national-rail]
-  #52657A   18  Bromley South  [national-rail]
-  #718085   18  Catford  [national-rail]
-  #8B6144   16  Orpington  [national-rail]
-  #996658   13  Purley  [national-rail]
-  #AC776A   12  Tulse Hill  [national-rail]
-  #4A6875   10  Queens Road Peckham  [national-rail,overground]
-  #A08056   10  Stockwell  [tube]
-  #7B5D33   10  West Norwood  [national-rail]
+  #6B8D95   26  East Croydon  · National Rail · Tram
+  #99564F   24  West Croydon  · Overground · National Rail · Tram
+  #7E5D1D   24  Brixton  · Tube · National Rail
+  #B6706B   22  Bromley North  · National Rail
+  #98807D   22  Peckham Rye  · Overground · National Rail
+  #73899E   18  Streatham Hill  · National Rail
+  #496972   18  Bromley South  · National Rail
+  #51727B   18  Catford  · National Rail
+  #996937   16  Orpington  · National Rail
+  #856E69   13  Purley  · National Rail
+  #B27654   12  Tulse Hill  · National Rail
+  #52657A   10  Queens Road Peckham  · Overground · National Rail
+  #7D8892   10  Stockwell  · Tube
+  #6D6150   10  West Norwood  · National Rail
 
 south-west (12)
-  #0080A7   24  Kingston  [national-rail]
-  #0063B7   19  Streatham  [national-rail]
-  #3792B5   19  Clapham Junction  [national-rail,overground]
-  #1B87EE   17  Putney Bridge  [tube]
-  #5B86CE   16  Tooting Broadway  [tube]
-  #0084CA   14  Sutton  [national-rail]
-  #4181F0   14  Morden  [tube]
-  #2565D2   12  Clapham Common  [tube]
-  #006D8F   11  Wandsworth Town  [national-rail]
-  #0069A2   10  Wimbledon  [national-rail,tram,tube]
-  #4A73BA   10  Putney  [national-rail]
-  #3878E6   10  Surbiton  [national-rail]
+  #246D85   24  Kingston  · National Rail
+  #2561DD   19  Streatham  · National Rail
+  #0093C2   19  Clapham Junction  · Overground · National Rail
+  #3968E8   17  Putney Bridge  · Tube
+  #4287A1   16  Tooting Broadway  · Tube
+  #5E79C5   14  Sutton  · National Rail
+  #006E8C   14  Morden  · Tube
+  #3A5DDD   12  Clapham Common  · Tube
+  #4F6191   11  Wandsworth Town  · National Rail
+  #527AFD   10  Wimbledon  · Tube · National Rail · Tram
+  #3292B3   10  Putney  · National Rail
+  #3480FC   10  Surbiton  · National Rail
 
 north-west (8)
-  #11804F   21  Harrow Bus Station
-  #566D27   18  Golders Green  [tube]
-  #378A21   18  Edgware  [tube]
-  #07A13E   12  Cricklewood  [national-rail]
-  #677F39   11  Kilburn High Road  [overground]
-  #007900   11  Kilburn Park  [tube]
-  #199F64   10  Hendon Central  [tube]
-  #519C03   10  Swiss Cottage  [tube]
+  #007908   21  Harrow Bus Station
+  #317156   18  Golders Green  · Tube
+  #5F946F   18  Edgware  · Tube
+  #4F9C09   12  Cricklewood  · National Rail
+  #D47125   11  Kilburn High Road  · Overground
+  #5F6932   11  Kilburn Park  · Tube
+  #409F00   10  Hendon Central  · Tube
+  #1195B4   10  Swiss Cottage  · Tube
 
-north (11)
-  #C16F00   21  Holloway / Nags Head
-  #955D27   19  Camden Town  [tube]
-  #9F8400   17  Finsbury Park  [national-rail,tube]
-  #A96000   17  Turnpike Lane  [tube]
-  #7E6A17   16  Wood Green  [tube]
-  #9B682C   16  Archway  [tube]
-  #8F7000   13  Enfield Town  [overground]
-  #998538   12  Seven Sisters  [national-rail,overground,tube]
-  #AE7A3F   11  Edmonton Green  [national-rail,overground]
-  #A37300   11  High Barnet  [tube]
-  #786000   10  Manor House  [tube]
+north (13)
+  #A65000   21  Holloway / Nags Head
+  #B85DF1   19  Camden Town  · Tube
+  #DE6907   17  Finsbury Park  · Tube · National Rail
+  #848F00   17  Turnpike Lane  · Tube
+  #7D5C35   16  Wood Green  · Tube
+  #928755   16  Archway  · Tube
+  #7C54AE   15  St Pancras International  · National Rail
+  #8F7000   13  Mornington Crescent  · Tube
+  #A86D4B   13  Enfield Town  · Overground
+  #D16100   12  Seven Sisters  · Tube · Overground · National Rail
+  #737A49   11  Edmonton Green  · Overground · National Rail
+  #B37900   11  High Barnet  · Tube
+  #626A00   10  Manor House  · Tube
 
-west (13)
-  #009D7B   20  Hammersmith  [tube]
-  #00908D   19  Ealing Broadway  [elizabeth-line,national-rail,tube]
-  #006F83   18  Shepherd's Bush  [national-rail,overground,tube]
-  #499688   16  Richmond  [national-rail,overground,tube]
-  #2E828D   14  Uxbridge  [tube]
-  #00755A   13  Notting Hill Gate  [tube]
-  #008683   13  White City  [tube]
-  #007F62   13  Wembley Central  [national-rail,overground,tube]
-  #0096AF   12  High Street Kensington  [tube]
-  #2196A7   11  South Harrow  [tube]
-  #007176   11  Hayes & Harlington  [elizabeth-line,national-rail]
-  #4592A4   10  Ravenscourt Park  [tube]
-  #009372   10  South Kensington  [tube]
+west (10)
+  #009F68   20  Hammersmith  · Tube
+  #517E7A   19  Ealing Broadway  · Elizabeth line · Tube · National Rail
+  #007367   18  Shepherd's Bush  · Tube · Overground · National Rail
+  #00769D   16  Richmond  · Tube · Overground · National Rail
+  #45697A   14  Uxbridge  · Tube
+  #678C9F   13  White City  · Tube
+  #5E947A   13  Wembley Central  · Tube · Overground · National Rail
+  #2A92BB   11  South Harrow  · Tube
+  #008967   11  Hayes & Harlington  · Elizabeth line · National Rail
+  #4A70F2   10  Ravenscourt Park  · Tube
 
-north-east (9)
-  #BE037D   20  Walthamstow Bus Station
-  #B275BA   17  Hackney Central  [overground]
-  #8044CB   17  Shoreditch High Street  [overground]
-  #9E4B75   13  Dalston Junction  [overground]
-  #AC20A6   12  Gants Hill  [tube]
-  #775AA6   12  Stamford Hill  [national-rail,overground]
-  #E545AD   10  Stoke Newington  [national-rail,overground]
-  #C149D2   10  Leytonstone  [tube]
-  #A664FE   10  Homerton  [overground]
+north-east (8)
+  #AF61F8   20  Walthamstow Bus Station
+  #A664FE   17  Hackney Central  · Overground
+  #C46F9D   13  Dalston Junction  · Overground
+  #833CD5   12  Gants Hill  · Tube
+  #E744A7   12  Stamford Hill  · Overground · National Rail
+  #775AA6   10  Stoke Newington  · Overground · National Rail
+  #9E4B75   10  Leytonstone  · Tube
+  #B8118D   10  Homerton  · Overground
+
+Colour changes (previous build → this build); ΔE = OKLab ×100 to closest neighbour within 3 km
+  Z1 #7449D2 → #1F51FE   ΔE   4.3 →  13.4   Charing Cross
+  Z1 #8840C6 → #0089EA   ΔE   4.3 →  13.6   Elephant & Castle
+  Z1 #9C4297 → #2C9600   ΔE   3.6 →  14.0   Aldwych / Drury Lane
+  Z1 #717FFF → #0097AA   ΔE   4.6 →  14.2   Tottenham Court Road
+  Z1 #7A6477 → #39659B   ΔE   4.8 →  14.1   Lambeth North
+     #F4455D → #F83E54   ΔE  17.4 →  18.5   Lewisham
+  Z1 #A72FA1 → #717FFF   ΔE   1.8 →  12.6   Oxford Circus
+  Z1 #39659B → #9B5164   ΔE   3.9 →  12.9   Holborn
+     #A87B5D → #6B8D95   ΔE  12.5 →  15.9   East Croydon
+  Z1 #9670FC → #F224B2   ΔE   4.0 →  13.4   Marble Arch
+     #62778B → #99564F   ΔE  12.5 →  15.9   West Croydon
+     #7C6660 → #7E5D1D   ΔE   9.9 →  12.9   Brixton
+  Z1 #7E6CF7 → #886600   ΔE   4.0 →  13.6   Victoria
+     #0080A7 → #246D85   ΔE  10.9 →  18.7   Kingston
+  Z1 #5D617A → #F70054   ΔE   4.8 →  13.4   Hyde Park Corner
+  Z1 #6E7F95 → #AC46FF   ΔE   3.0 →  15.8   Monument
+     #BE5A54 → #D34635   ΔE     — →     —   Romford
+     #A84E25 → #F73D62   ΔE  12.2 →  14.2   Stratford
+     #8D6F44 → #B6706B   ΔE  12.7 →  17.6   Bromley North
+  Z1 #9B7998 → #C846F8   ΔE   5.0 →  13.5   Piccadilly Circus
+     #918473 → #98807D   ΔE  12.0 →  13.8   Peckham Rye
+  Z1 #007AED → #C700A0   ΔE   3.2 →  13.7   Waterloo
+     #11804F → #007908   ΔE  13.4 →  22.9   Harrow Bus Station
+     #CF7346 → #B34300   ΔE  15.0 →  14.1   Woolwich
+     #D54507 → #D60B49   ΔE   9.0 →  16.7   Ilford
+  Z1 #A1529B → #4D44FD   ΔE   3.6 →  15.5   Liverpool Street
+     #C16F00 → #A65000   ΔE   7.4 →  12.7   Holloway / Nags Head
+     #009D7B → #009F68   ΔE   7.6 →  13.3   Hammersmith
+  Z1 #76889E → #FF1C7B   ΔE   3.0 →  13.8   City Thameslink
+     #A65100 → #A15500   ΔE  14.0 →  13.8   New Cross Gate
+     #BE037D → #AF61F8   ΔE  13.9 →  20.0   Walthamstow Bus Station
+     #955D27 → #B85DF1   ΔE   9.9 →  12.6   Camden Town
+  Z1 #CF57C8 → #676815   ΔE   4.1 →  14.5   St Paul's
+     #0063B7 → #2561DD   ΔE  12.7 →  15.6   Streatham
+  Z1 #BB44B4 → #8547BD   ΔE   4.0 →  14.3   Westminster
+     #00908D → #517E7A   ΔE     — →     —   Ealing Broadway
+     #3792B5 → #0093C2   ΔE   9.9 →  13.7   Clapham Junction
+  Z1 #6588B6 → #B90094   ΔE   4.1 →  14.5   Angel
+     #566D27 → #317156   ΔE  14.3 →  16.7   Golders Green
+     #378A21 → #5F946F   ΔE     — →     —   Edgware
+     #6D8C99 → #73899E   ΔE  11.0 →  12.9   Streatham Hill
+  Z1 #1463DC → #B100AC   ΔE   4.3 →  13.4   Baker Street
+     #52657A → #496972   ΔE  12.7 →  17.6   Bromley South
+     #718085 → #51727B   ΔE  23.6 →  28.5   Catford
+     #006F83 → #007367   ΔE   7.3 →  13.8   Shepherd's Bush
+     #9F8400 → #DE6907   ΔE   7.6 →  12.7   Finsbury Park
+     #B275BA → #A664FE   ΔE  11.8 →  15.6   Hackney Central
+     #A96000 → #848F00   ΔE   7.7 →  12.3   Turnpike Lane
+  Z1 #0C84FA → #209993   ΔE   3.2 →  15.0   London Bridge
+  Z1 #8044CB → #6663A3   ΔE  10.9 →  16.4   Shoreditch High Street
+     #1B87EE → #3968E8   ΔE   8.8 →  13.5   Putney Bridge
+  Z1 #AA474F → #B500A0   ΔE  11.4 →  15.4   Aldgate East
+     #499688 → #00769D   ΔE     — →     —   Richmond
+     #7E6A17 → #7D5C35   ΔE   7.7 →  15.7   Wood Green
+     #5B86CE → #4287A1   ΔE  12.6 →  15.4   Tooting Broadway
+     #9B682C → #928755   ΔE   7.4 →  13.1   Archway
+     #8B6144 → #996937   ΔE     — →     —   Orpington
+     #9837B5 → #7C54AE   ΔE   4.4 →  12.1   St Pancras International
+  Z1 #A132A9 → #AB4261   ΔE   1.8 →  14.5   Knightsbridge
+  Z1 #BC52CB → #3E9F24   ΔE   4.0 →  15.6   Vauxhall
+  Z1 #805A95 → #0061BE   ΔE   7.8 →  15.5   Edgware Road
+  Z1 #B464E8 → #7E2BED   ΔE   6.1 →  12.1   Euston Square
+  Z1 #9479E7 → #D91000   ΔE   6.0 →  14.0   Bank
+     #0084CA → #5E79C5   ΔE     — →     —   Sutton
+     #4181F0 → #006E8C   ΔE  14.0 →  18.8   Morden
+     #2E828D → #45697A   ΔE     — →     —   Uxbridge
+     #546E8E → #8F7000   ΔE   5.0 →  14.1   Mornington Crescent
+  Z1 #B873B2 → #007CB7   ΔE   6.7 →  14.3   Sloane Square
+     #B86426 → #A54B55   ΔE  12.7 →  15.8   Canning Town
+     #8F7000 → #A86D4B   ΔE     — →     —   Enfield Town
+     #C91400 → #CE6E77   ΔE  14.5 →  14.1   Plumstead
+     #996658 → #856E69   ΔE     — →     —   Purley
+  Z1 #3986E4 → #FA002A   ΔE   3.8 →  18.2   Kennington
+  Z1 #00755A → #FF3624   ΔE   7.1 →  17.3   Notting Hill Gate
+     #008683 → #678C9F   ΔE   7.0 →  13.3   White City
+     #9E4B75 → #C46F9D   ΔE  13.4 →  15.4   Dalston Junction
+     #007F62 → #5E947A   ΔE     — →     —   Wembley Central
+     #AC20A6 → #833CD5   ΔE  23.8 →  26.9   Gants Hill
+  Z1 #206CE7 → #BE7100   ΔE   6.4 →  14.8   Old Street
+     #2565D2 → #3A5DDD   ΔE  14.4 →  15.5   Clapham Common
+     #998538 → #D16100   ΔE   9.1 →  15.7   Seven Sisters
+     #775AA6 → #E744A7   ΔE  20.0 →  20.3   Stamford Hill
+     #07A13E → #4F9C09   ΔE  11.1 →  16.1   Cricklewood
+     #E45B67 → #BB7234   ΔE   9.0 →  16.7   Barking
+  Z1 #5C88C1 → #00A149   ΔE   9.7 →  14.3   Marylebone
+     #AC776A → #B27654   ΔE   9.9 →  12.9   Tulse Hill
+  Z1 #0096AF → #A37300   ΔE   7.3 →  17.0   High Street Kensington
+     #D26B71 → #C80042   ΔE   9.9 →  14.6   Surrey Quays
+     #AE7A3F → #737A49   ΔE     — →     —   Edmonton Green
+     #A37300 → #B37900   ΔE     — →     —   High Barnet
+     #E93954 → #F84713   ΔE  13.1 →  16.7   North Greenwich
+     #2196A7 → #2A92BB   ΔE  13.4 →  22.9   South Harrow
+  Z1 #0061BE → #117555   ΔE   4.8 →  13.7   Green Park
+     #007176 → #008967   ΔE     — →     —   Hayes & Harlington
+     #006D8F → #4F6191   ΔE   8.7 →  13.5   Wandsworth Town
+     #677F39 → #D47125   ΔE  10.1 →  20.4   Kilburn High Road
+     #007900 → #5F6932   ΔE   9.3 →  16.1   Kilburn Park
+     #D47124 → #AE4440   ΔE  12.3 →  14.5   Mile End
+     #F34F08 → #F05400   ΔE   9.9 →  15.1   Canada Water
+     #C8063A → #EF4B67   ΔE  16.5 →  15.2   Beckton
+     #E545AD → #775AA6   ΔE  11.8 →  15.4   Stoke Newington
+     #DE2D4B → #D76F00   ΔE  12.2 →  14.2   Bow Church
+     #4592A4 → #4A70F2   ΔE   7.0 →  16.5   Ravenscourt Park
+     #199F64 → #409F00   ΔE  14.3 →  17.4   Hendon Central
+     #519C03 → #1195B4   ΔE  10.1 →  15.5   Swiss Cottage
+     #0069A2 → #527AFD   ΔE  12.6 →  15.4   Wimbledon
+  Z1 #C467BD → #B97500   ΔE   4.1 →  14.8   Borough
+  Z1 #2063B0 → #C66AAA   ΔE   3.9 →  13.7   Mansion House
+     #4A6875 → #52657A   ΔE  13.9 →  13.8   Queens Road Peckham
+     #4A73BA → #3292B3   ΔE   8.7 →  13.8   Putney
+  Z1 #009372 → #993FFC   ΔE   9.1 →  20.5   South Kensington
+     #786000 → #626A00   ΔE   7.5 →  12.3   Manor House
+     #C149D2 → #9E4B75   ΔE  13.9 →  20.0   Leytonstone
+     #A08056 → #7D8892   ΔE  10.3 →  16.3   Stockwell
+     #D26F5A → #CA0E00   ΔE  14.5 →  15.6   Abbey Wood
+     #7B5D33 → #6D6150   ΔE  13.0 →  13.7   West Norwood
+     #A664FE → #B8118D   ΔE  11.9 →  15.0   Homerton
+  Z1 #4959DD → #D56E49   ΔE   4.3 →  13.9   Goodge Street
+     #3878E6 → #3480FC   ΔE  10.9 →  18.7   Surbiton

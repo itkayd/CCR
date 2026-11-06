@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "data": "tsx scripts/fetch.ts && tsx scripts/build.ts",
     "data:fetch": "tsx scripts/fetch.ts",
-    "data:build": "tsx scripts/build.ts"
+    "data:build": "tsx scripts/build.ts",
+    "test": "tsx --test scripts/*.test.ts"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
@@ -21,8 +22,10 @@
     "vite": "^5.4.10"
   },
   "dependencies": {
+    "lucide-react": "^0.460.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "vaul": "^1.1.2",
     "zustand": "^4.5.5"
   }
 }

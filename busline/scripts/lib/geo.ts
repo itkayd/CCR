@@ -31,7 +31,7 @@ export function toMetres(lat: number, lon: number): [number, number] {
  * r' = k·ln(1 + r/k) that gives Zones 1–2 roughly twice the room of the suburbs.
  * One unit ≈ 100 m at the centre.
  */
-export const FISHEYE_K = 8000;
+export const FISHEYE_K = 5000;
 export function project(lat: number, lon: number): [number, number] {
   const [mx, my] = toMetres(lat, lon);
   const r = Math.hypot(mx, my);
