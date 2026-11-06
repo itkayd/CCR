@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useMemo, useState } from 'react';
+import { Component, StrictMode, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Map as MapIcon, Monitor, Moon, Network, Sun } from 'lucide-react';
 import './styles/tokens.css';
@@ -41,9 +41,21 @@ function ProviderTabs() {
   );
 }
 
+/** A map failure (WebGL, tiles, an old browser) must not take the Nearby sheet down with it. */
+class MapBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(e: unknown) { console.error('map failed', e); }
+  render() {
+    return this.state.failed
+      ? <div className="livemap mapfail"><p>The map couldn’t load on this device. Live times below still work.</p></div>
+      : this.props.children;
+  }
+}
+
 function Live({ data }: { data: Data }) {
   const { pos, state } = useLocation();
-  const { stops, error } = useNearby(pos);
+  const { stops, error, retry } = useNearby(pos);
   const [stopHub, setStopHub] = useState<Map<string, string>>(new Map());
   useEffect(() => {
     fetch('/data/stops.json').then((r) => r.json()).then((rows: [string, number, number, string][]) => setStopHub(new Map(rows.map((r) => [r[0], r[3]]))));
@@ -52,7 +64,7 @@ function Live({ data }: { data: Data }) {
   const { arrivals, updated } = useArrivals(ids, true);
   return (
     <>
-      <LiveMap data={data} pos={pos} nearby={stops} />
+      <MapBoundary><LiveMap data={data} pos={pos} nearby={stops} /></MapBoundary>
       <div className="floattop">
         <div className="floatrow">
           <ModeSwitch />
@@ -60,7 +72,7 @@ function Live({ data }: { data: Data }) {
         </div>
         <ProviderTabs />
       </div>
-      <NearbySheet data={data} stopHub={stopHub} pos={pos} locState={state} stops={stops} error={error} arrivals={arrivals} updated={updated} />
+      <NearbySheet data={data} stopHub={stopHub} pos={pos} locState={state} stops={stops} error={error} retry={retry} arrivals={arrivals} updated={updated} />
     </>
   );
 }

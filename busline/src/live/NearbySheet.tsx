@@ -131,9 +131,9 @@ function SearchResults({ data, q, onPick }: { data: Data; q: string; onPick: () 
   );
 }
 
-export function NearbySheet({ data, stopHub, pos, locState, stops, error, arrivals, updated }: {
+export function NearbySheet({ data, stopHub, pos, locState, stops, error, retry, arrivals, updated }: {
   data: Data; stopHub: Map<string, string>; pos: LatLon | null; locState: LocState;
-  stops: NearbyStop[] | null; error: string | null; arrivals: Arrival[] | null; updated: Date | null;
+  stops: NearbyStop[] | null; error: string | null; retry: () => void; arrivals: Arrival[] | null; updated: Date | null;
 }) {
   const { setSheetInset, stack } = useStore();
   const top = stack[stack.length - 1];
@@ -181,13 +181,21 @@ export function NearbySheet({ data, stopHub, pos, locState, stops, error, arriva
           <div className="nlist">
             {q ? <SearchResults data={data} q={q} onPick={() => { setQ(''); setSnap(snaps[1]); }} /> : (
               <>
-                {locState !== 'ok' && locState !== 'locating' && (
+                {['denied', 'outside', 'unsupported', 'slow'].includes(locState) && (
                   <p className="notice"><MapPin size={16} aria-hidden="true" />
-                    {locState === 'outside' ? 'You’re outside London, so this shows Trafalgar Square.' : 'Location is off, so this shows Trafalgar Square. Allow location to see buses near you.'}
+                    {locState === 'outside' ? 'You’re outside London, so this shows Trafalgar Square.'
+                      : locState === 'slow' ? 'Still finding your location, so this shows Trafalgar Square for now.'
+                      : 'Location is off, so this shows Trafalgar Square. Allow location in your browser settings to see buses near you.'}
                   </p>
                 )}
-                {error && <p className="notice">Couldn’t load nearby stops ({error}). Pull up to retry later.</p>}
-                {!stops && !error && <p className="empty">Finding stops near you…</p>}
+                {error && (
+                  <div className="notice errbox">
+                    <span>Couldn’t load nearby stops: {error}.</span>
+                    <button className="retry" onClick={retry}>Retry</button>
+                  </div>
+                )}
+                {!pos && !error && <p className="empty">Getting your location…</p>}
+                {pos && !stops && !error && <p className="empty">Finding bus stops near you…</p>}
                 {stops && !stops.length && <p className="empty">No bus stops within 400 m.</p>}
                 {cards.map((c) => <CardView key={c.line} card={c} />)}
               </>

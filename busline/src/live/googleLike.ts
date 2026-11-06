@@ -86,6 +86,13 @@ export function stopIcon(hex: string): { width: number; height: number; data: Ui
   const s = 48, c = document.createElement('canvas');
   c.width = c.height = s;
   const g = c.getContext('2d')!;
+  if (!('roundRect' in g)) {
+    // older Safari: plain rounded path
+    (g as CanvasRenderingContext2D & { roundRect: unknown }).roundRect = function (this: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+      this.moveTo(x + r, y); this.arcTo(x + w, y, x + w, y + h, r); this.arcTo(x + w, y + h, x, y + h, r);
+      this.arcTo(x, y + h, x, y, r); this.arcTo(x, y, x + w, y, r); this.closePath();
+    };
+  }
   // white rim so the marker reads on any base map and over route lines
   g.fillStyle = '#FFFFFF';
   g.beginPath(); g.roundRect(1, 1, s - 2, s - 2, 12); g.fill();

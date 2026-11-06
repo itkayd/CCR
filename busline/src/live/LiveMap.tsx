@@ -118,11 +118,14 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
     let cancelled = false;
     const t = styleMode.current;
     const FONT_BOLD = [...PROVIDERS[styleProvider.current].bold];
-    Promise.all([loadLines(), loadStops()]).then(([lines, stops]) => {
+    // Stops (1 MB) first so markers and the location dot appear quickly;
+    // route lines (5.7 MB) fill in when they arrive.
+    loadStops().then((stops) => {
       if (cancelled || !m.getStyle()) return;
       const majors = fc([...data.hubs.values()].filter((h) => h.major).map((h) => pt(h.lon, h.lat, { id: h.id, name: h.name, c: h.colour, n: h.routes.length })));
       const add = (id: string, d: FC) => (m.getSource(id) ? (m.getSource(id) as GeoJSONSource).setData(d) : m.addSource(id, { type: 'geojson', data: d }));
-      add('routes', lines);
+      add('routes', fc([]));
+      loadLines().then((lines) => { if (!cancelled && m.getSource('routes')) (m.getSource('routes') as GeoJSONSource).setData(lines); }).catch(() => {});
       add('stops', stops);
       add('majors', majors);
       add('nearby', fc([]));

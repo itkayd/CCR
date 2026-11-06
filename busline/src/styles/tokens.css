@@ -277,3 +277,7 @@ button.cbadge::after { content: ''; position: absolute; inset: -6px -2px; }
 
 .rbadges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; align-items: center; }
 .rbadges .cbadge { cursor: inherit; }
+
+.errbox { align-items: center; justify-content: space-between; color: var(--ink); }
+.retry { flex: none; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 0; background: var(--accent); color: #fff; font-weight: 800; cursor: pointer; }
+.mapfail { display: grid; place-items: start center; padding-top: 120px; color: var(--muted); text-align: center; }
