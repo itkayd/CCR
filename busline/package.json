@@ -1,0 +1,19 @@
+{
+  "name": "busline-london",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "data": "tsx scripts/fetch.ts && tsx scripts/build.ts",
+    "data:fetch": "tsx scripts/fetch.ts",
+    "data:build": "tsx scripts/build.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

@@ -1,0 +1,32 @@
+name: Busline data refresh
+
+on:
+  schedule:
+    - cron: '17 4 * * 1' # Mondays 04:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: busline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run data
+        env:
+          TFL_APP_KEY: ${{ secrets.TFL_APP_KEY }}
+      - name: Commit updated data
+        run: |
+          git config user.name "busline-bot"
+          git config user.email "busline-bot@users.noreply.github.com"
+          git add public/data scripts/majors.list.json
+          git diff --cached --quiet || git commit -m "Weekly TfL bus data refresh"
+          git push
