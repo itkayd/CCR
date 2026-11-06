@@ -8,6 +8,8 @@ import { distM, type Arrival, type LatLon, type LocState, type NearbyStop } from
 import { loadRouteDetail, PlaceScreen, RouteScreen, type RouteDetail } from './screens';
 import { JourneyScreen } from './journey';
 import { warmPlanner } from '../router/client';
+import { HomeExtras, UpdatesScreen } from './home';
+import { loadPlans } from './plans';
 
 const HEADER_PX = 0; // no app header on the live map
 const PEEK_PX = 148;
@@ -224,6 +226,7 @@ export function NearbySheet({ data, stopHub, pos, locState, stops, error, retry,
 
   useEffect(() => { if (top.type !== 'nearby' && snap === snaps[0]) setSnap(snaps[1]); }, [stack.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const nearbyLines = useMemo(() => [...new Set((stops ?? []).flatMap((s) => s.lines))], [stops]);
   const cards = useMemo(() => (pos && stops ? buildCards(data, stopHub, pos, stops, arrivals) : []), [data, stopHub, pos, stops, arrivals]);
   const time = updated?.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
@@ -232,9 +235,10 @@ export function NearbySheet({ data, stopHub, pos, locState, stops, error, retry,
       <Drawer.Portal>
         <Drawer.Content className="nsheet" style={{ height: vh - HEADER_PX - 64 }} aria-describedby={undefined}>
           <Drawer.Handle className="handle" />
-          {top.type !== 'nearby' && <Drawer.Title className="sr-only">{top.type === 'route' ? `Route ${top.id}` : 'Stop'}</Drawer.Title>}
+          {top.type !== 'nearby' && <Drawer.Title className="sr-only">{top.type === 'route' ? `Route ${top.id}` : top.type === 'journey' ? 'Journey' : top.type === 'updates' ? 'Service updates' : 'Stop'}</Drawer.Title>}
           {top.type === 'route' && <RouteScreen key={`r-${top.id}-${stack.length}`} data={data} stopHub={stopHub} id={top.id} dir={top.dir} focusHub={top.focusHub} />}
-          {top.type === 'journey' && <JourneyScreen key={`j-${stack.length}`} data={data} pos={pos} to={top.to} />}
+          {top.type === 'journey' && <JourneyScreen key={`j-${stack.length}`} data={data} pos={pos} to={top.to} plan={top.planId ? loadPlans().find((x) => x.id === top.planId) : undefined} />}
+          {top.type === 'updates' && <UpdatesScreen data={data} nearbyLines={nearbyLines} />}
           {top.type === 'place' && <PlaceScreen key={`p-${top.hub}-${stack.length}`} data={data} stopHub={stopHub} hub={top.hub} />}
           {top.type === 'nearby' && <>
           <div className="nsearch">
@@ -272,6 +276,8 @@ export function NearbySheet({ data, stopHub, pos, locState, stops, error, retry,
                 {!pos && !error && <p className="empty">Getting your location…</p>}
                 {pos && !stops && !error && <p className="empty">Finding bus stops near you…</p>}
                 {stops && !stops.length && <p className="empty">No bus stops within 400 m.</p>}
+                <HomeExtras data={data} nearbyLines={nearbyLines} />
+                {cards.length > 0 && <h4 className="sec">Buses near you</h4>}
                 {cards.map((c) => <CardView key={c.line} card={c} />)}
               </>
             )}

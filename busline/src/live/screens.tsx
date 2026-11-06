@@ -6,6 +6,7 @@ import { modeLabels } from '../lib/modes';
 import { useStore } from '../store/store';
 import { useArrivals, useNearby } from './api';
 import { buildCards, CardView, LiveIcon } from './NearbySheet';
+import { RouteIssues } from './home';
 
 // ---------------------------------------------------------------- data hooks
 export interface RouteDetail { id: string; a: string; b: string; dirs: { dir: string; to: string; stops: [string, string, string, number, number][] }[] }
@@ -121,6 +122,7 @@ export function RouteScreen({ data, stopHub, id, dir, focusHub }: { data: Data; 
           <small>{rows.length} stops{vehicles ? <> <span className="dot" /> <LiveIcon /> {liveCount} bus{liveCount === 1 ? '' : 'es'} live</> : ''}</small>
         </span>
       </Header>
+      <div className="routeissues-wrap"><RouteIssues line={id} /></div>
       {detail && detail.dirs.length > 1 && (
         <div className="dirtabs" role="tablist" aria-label="Direction">
           {detail.dirs.map((x, i) => (

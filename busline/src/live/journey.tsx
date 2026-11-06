@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDownUp, ArrowLeft, ArrowRight, Clock, Footprints, LocateFixed, MapPin, Plus, Search, Shuffle, X } from 'lucide-react';
+import { AlertTriangle, ArrowDownUp, ArrowLeft, ArrowRight, Bell, BookmarkPlus, CalendarClock, Clock, Footprints, LocateFixed, MapPin, Plus, Search, Shuffle, X } from 'lucide-react';
 import { NEUTRAL } from '../lib/colour';
 import { colourAt, type Data } from '../lib/data';
 import { useStore, type Place, type Trip } from '../store/store';
@@ -7,6 +7,8 @@ import type { LatLon } from './api';
 import { LiveIcon } from './NearbySheet';
 import { planTrip, warmPlanner } from '../router/client';
 import type { Plan } from '../router/raptor';
+import { DAY_NAMES, countdown, nextOccurrence, londonClockAt, londonDate, londonEpoch, londonTime, upsertPlan, useIssues, type Issue, type SavedPlan } from './plans';
+import { enableReminders } from './reminders';
 
 // ---------------------------------------------------------------- display model
 interface UStop { id: string; name: string; letter: string; lat: number; lon: number }
@@ -126,7 +128,7 @@ function LegChips({ data, j }: { data: Data; j: UJourney }) {
   );
 }
 
-function LegList({ data, j, liveEta }: { data: Data; j: UJourney; liveEta: number | null | undefined }) {
+function LegList({ data, j, liveEta, issues }: { data: Data; j: UJourney; liveEta: number | null | undefined; issues: Issue[] }) {
   const firstBus = j.legs.findIndex((l) => l.mode === 'bus');
   return (
     <ol className="legs">
@@ -143,6 +145,12 @@ function LegList({ data, j, liveEta }: { data: Data; j: UJourney; liveEta: numbe
                   ? <span className="livewait"><LiveIcon /> Next {l.line} {liveEta < 60 ? 'due now' : `in ${Math.floor(liveEta / 60)} min`}</span>
                   : <span className="muted">Every {l.everyMin} min{l.waitMin ? <><span className="dot" />allow {l.waitMin} min to wait</> : ''}</span>}
                 <span className="muted">{l.stops === 1 ? '1 stop' : `${l.stops} stops`}<span className="dot" />{l.minutes} min<span className="dot" />get off at {l.to.name}</span>
+                {issues.filter((x) => x.line === l.line).slice(0, 2).map((x, k) => (
+                  <details key={k} className="issue">
+                    <summary><AlertTriangle size={14} aria-hidden="true" /> {x.kind ?? x.status} on the {l.line}</summary>
+                    <p>{x.reason}</p>
+                  </details>
+                ))}
               </>
             ) : (
               <>
@@ -158,9 +166,11 @@ function LegList({ data, j, liveEta }: { data: Data; j: UJourney; liveEta: numbe
   );
 }
 
-function JourneyCard({ data, j, active, fastest, fewest, onSelect }: { data: Data; j: UJourney; active: boolean; fastest: boolean; fewest: boolean; onSelect: () => void }) {
+function JourneyCard({ data, j, active, fastest, fewest, onSelect, issues }: { data: Data; j: UJourney; active: boolean; fastest: boolean; fewest: boolean; onSelect: () => void; issues: Issue[] }) {
   const liveEta = useFirstBusLive(active ? j : undefined);
   const first = j.legs.find((l) => l.mode === 'bus');
+  const lines = new Set(j.legs.filter((l) => l.mode === 'bus').map((l) => l.line));
+  const mine = issues.filter((i) => lines.has(i.line) && i.now);
   return (
     <article className={`jcard${active ? ' active' : ''}`}>
       <button className="jcard-head" onClick={onSelect} aria-pressed={active}>
@@ -172,10 +182,11 @@ function JourneyCard({ data, j, active, fastest, fewest, onSelect }: { data: Dat
             {fastest && <span className="fast">Fastest</span>}
             {fewest && !fastest && <span className="fast alt">Fewest changes</span>}
           </span>
+          {mine.length > 0 && <span className="issuechip"><AlertTriangle size={13} aria-hidden="true" /> {[...new Set(mine.map((i) => i.line))].join(', ')}: service change</span>}
           {first && <span className="muted">From {first.from.name}{first.from.letter ? ` (${first.from.letter})` : ''}{j.rides > 1 ? <><span className="dot" />{j.rides - 1} change{j.rides > 2 ? 's' : ''}</> : ''}</span>}
         </span>
       </button>
-      {active && <LegList data={data} j={j} liveEta={liveEta} />}
+      {active && <LegList data={data} j={j} liveEta={liveEta} issues={mine} />}
     </article>
   );
 }
@@ -207,17 +218,127 @@ function PlacePicker({ data, title, allowMe, onPick, onClose }: { data: Data; ti
   );
 }
 
+// ---------------------------------------------------------------- when, save, countdown
+export interface When { mode: 'now' | 'leave' | 'arrive'; date: string; time: string }
+
+function WhenBar({ when, onChange }: { when: When; onChange: (w: When) => void }) {
+  const days = Array.from({ length: 7 }, (_, k) => {
+    const date = londonDate(Date.now() + k * 86_400_000);
+    const d = londonClockAt(londonEpoch(date, '12:00')).day;
+    return { date, label: k === 0 ? 'Today' : k === 1 ? 'Tomorrow' : DAY_NAMES[d] };
+  });
+  return (
+    <div className="whenbar">
+      <div className="seg" role="radiogroup" aria-label="When">
+        {([['now', 'Leave now'], ['leave', 'Leave at'], ['arrive', 'Arrive by']] as const).map(([m, label]) => (
+          <button key={m} role="radio" aria-checked={when.mode === m} aria-pressed={when.mode === m}
+            onClick={() => onChange({ ...when, mode: m, ...(m !== 'now' && when.mode === 'now' ? { time: londonTime(Date.now() + 15 * 60_000) } : {}) })}>{label}</button>
+        ))}
+      </div>
+      {when.mode !== 'now' && (
+        <div className="whenrow">
+          <select value={when.date} onChange={(e) => onChange({ ...when, date: e.target.value })} aria-label="Day">
+            {days.map((d) => <option key={d.date} value={d.date}>{d.label}</option>)}
+          </select>
+          <input type="time" value={when.time} onChange={(e) => e.target.value && onChange({ ...when, time: e.target.value })} aria-label="Time" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SavePanel({ defaultTitle, when, onSave, onClose }: { defaultTitle: string; when: When; onSave: (title: string, days: number[], remind: number) => void; onClose: () => void }) {
+  const [title, setTitle] = useState(defaultTitle);
+  const [days, setDays] = useState<number[]>([]);
+  const [remind, setRemind] = useState(10);
+  const toggle = (d: number) => setDays((x) => (x.includes(d) ? x.filter((y) => y !== d) : [...x, d].sort()));
+  return (
+    <div className="savepanel" role="dialog" aria-label="Save this trip">
+      <h4><BookmarkPlus size={16} aria-hidden="true" /> Save this trip</h4>
+      <label className="field"><span>Name</span><input value={title} onChange={(e) => setTitle(e.target.value)} /></label>
+      <div className="field"><span>Repeat</span>
+        <div className="daychips">
+          {[1, 2, 3, 4, 5, 6, 0].map((d) => <button key={d} aria-pressed={days.includes(d)} onClick={() => toggle(d)}>{DAY_NAMES[d]}</button>)}
+        </div>
+        <small className="muted">{days.length ? 'Every ' + [1, 2, 3, 4, 5, 6, 0].filter((d) => days.includes(d)).map((d) => DAY_NAMES[d]).join(', ') : `Once, ${when.mode === 'now' ? 'today' : when.date}`} · {when.mode === 'arrive' ? 'arrive by' : 'leave at'} {when.mode === 'now' ? londonTime() : when.time}</small>
+      </div>
+      <div className="field"><span>Remind me</span>
+        <div className="seg">
+          {[0, 5, 10, 15, 30].map((m) => <button key={m} aria-pressed={remind === m} onClick={() => setRemind(m)}>{m ? `${m} min` : 'Off'}</button>)}
+        </div>
+        <small className="muted">A notification before it’s time to leave.</small>
+      </div>
+      <div className="saverow">
+        <button className="ghostbtn" onClick={onClose}>Cancel</button>
+        <button className="retry" onClick={() => onSave(title.trim() || defaultTitle, days, remind)}>Save</button>
+      </div>
+    </div>
+  );
+}
+
+/** "Leave in 6 min": counts down every second; within 45 min it follows the live
+ *  prediction for your first bus (walk + 1 min margin), so it gets more accurate as you get close. */
+export function LeaveCountdown({ leaveAt, j }: { leaveAt: number; j: UJourney | undefined }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const t = window.setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  const first = j?.legs.find((l) => l.mode === 'bus');
+  const walkSec = j ? j.legs.slice(0, j.legs.indexOf(first!)).reduce((t, l) => t + l.minutes * 60, 0) : 0;
+  const near = leaveAt - now < 45 * 60_000;
+  const [live, setLive] = useState<{ eta: number; at: number } | null>(null);
+  useEffect(() => {
+    if (!near || !first?.from.id || !first.line) return;
+    let on = true;
+    const load = () => fetch(`/api/arrivals?ids=${first.from.id}`).then((r) => r.json()).then((d) => {
+      if (!on) return;
+      // first bus of this route you can still reach on foot
+      const a = (d.arrivals ?? []).filter((x: { line: string; eta: number }) => x.line === first.line && x.eta >= walkSec + 60)[0];
+      setLive(a ? { eta: a.eta, at: Date.now() } : null);
+    }).catch(() => {});
+    load();
+    const t = window.setInterval(load, 30_000);
+    return () => { on = false; clearInterval(t); };
+  }, [near, first?.from.id, first?.line, walkSec]);
+  const target = live ? live.at + (live.eta - walkSec - 60) * 1000 : leaveAt;
+  const ms = target - now;
+  const mins = Math.max(0, Math.ceil(ms / 60_000));
+  return (
+    <section className={`countdown${ms < 3 * 60_000 ? ' soon' : ''}`} aria-live="polite" aria-atomic="true">
+      <CalendarClock size={22} aria-hidden="true" />
+      <div>
+        <b>{ms <= 30_000 ? 'Leave now' : ms < 60 * 60_000 ? `Leave in ${mins} min` : `Leave at ${time(new Date(target))}`}</b>
+        <span className="muted">
+          {first ? <>to catch the {first.line} from {first.from.name}{first.from.letter ? ` (${first.from.letter})` : ''}</> : 'walking'}
+          {live ? <><span className="dot" /><LiveIcon /> live: bus in {Math.max(0, Math.round((live.eta - (now - live.at) / 1000) / 60))} min</> : near ? <><span className="dot" />timetable</> : ms >= 60 * 60_000 ? <><span className="dot" />in {countdown(ms)}</> : ''}
+        </span>
+      </div>
+    </section>
+  );
+}
+
 // ---------------------------------------------------------------- screen
 interface Point { place: Place | null; stay: number } // place null = your location; stay in minutes
 const STAYS = [0, 10, 15, 30, 45, 60, 90];
 const MAX_STOPS = 6;
 
+const planNext = (p: SavedPlan) => nextOccurrence(p) ?? Date.now();
+
 interface Result { order: number[]; optimised: boolean; tried: number; totalMin: number; arrive: Date; segments: { from: number; to: number; journeys: UJourney[] }[] }
 
-export function JourneyScreen({ data, pos, to: initialTo }: { data: Data; pos: LatLon | null; to: Place }) {
+export function JourneyScreen({ data, pos, to: initialTo, plan }: { data: Data; pos: LatLon | null; to: Place; plan?: SavedPlan }) {
   const { back, setSearching, setTrip } = useStore();
-  const [points, setPoints] = useState<Point[]>([{ place: null, stay: 0 }, { place: initialTo, stay: 0 }]);
-  const [optimise, setOptimise] = useState(true);
+  const [points, setPoints] = useState<Point[]>(plan?.points ?? [{ place: null, stay: 0 }, { place: initialTo, stay: 0 }]);
+  const [optimise, setOptimise] = useState(plan?.optimise ?? true);
+  const [when, setWhen] = useState<When>(() => {
+    if (plan) {
+      const occ = (plan.when.days.length || plan.when.date) ? plan.when : null;
+      const next = occ ? (plan.when.days.length ? undefined : plan.when.date) : undefined;
+      return { mode: plan.when.mode === 'arrive' ? 'arrive' : 'leave', date: next ?? londonDate(planNext(plan)), time: plan.when.time };
+    }
+    return { mode: 'now', date: londonDate(), time: londonTime() };
+  });
+  const [saving, setSaving] = useState(false);
+  const [savedNote, setSavedNote] = useState<string | null>(null);
+  const [departAt, setDepartAt] = useState<number>(Date.now());
   const [picking, setPicking] = useState<{ index: number; insert: boolean } | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -242,7 +363,7 @@ export function JourneyScreen({ data, pos, to: initialTo }: { data: Data; pos: L
     });
   }, [points]);
 
-  const key = JSON.stringify([resolved.map((p) => p && [p.lat, p.lon]), points.map((p) => p.stay), optimise]);
+  const key = JSON.stringify([resolved.map((p) => p && [p.lat, p.lon]), points.map((p) => p.stay), optimise, when]);
   useEffect(() => {
     if (!ready) return;
     let live = true;
@@ -250,12 +371,15 @@ export function JourneyScreen({ data, pos, to: initialTo }: { data: Data; pos: L
     const pts = resolved.map((p) => ({ lat: p!.lat!, lon: p!.lon!, name: p!.name }));
     setSearching({ from: { lat: pts[0].lat, lon: pts[0].lon }, to: { name: to.name, lat: pts[pts.length - 1].lat, lon: pts[pts.length - 1].lon } });
     const t0 = Date.now();
-    planTrip(pts, points.map((p) => p.stay * 60), optimise, londonClock())
+    const at = when.mode === 'now' ? Date.now() : londonEpoch(when.date, when.time);
+    const { clock, day } = londonClockAt(at);
+    planTrip(pts, points.map((p) => p.stay * 60), optimise, clock, day, when.mode === 'arrive')
       .then(async (res) => {
         await new Promise((r) => setTimeout(r, Math.max(0, MIN_SEARCH_MS - (Date.now() - t0))));
         if (!live) return;
         if (res.error || !res.tour || !res.stops) throw new Error(res.error ?? 'no result');
-        const now = Date.now();
+        const now = at + (res.departOffset ?? 0) * 1000; // departure time
+        setDepartAt(now);
         const segs = res.tour.segments.map((s) => ({ from: s.from, to: s.to, journeys: s.plans.map((p) => toUi(p, res.stops!, now + s.start * 1000)) }));
         setResult({ order: res.tour.order, optimised: res.tour.optimised, tried: res.tour.tried, totalMin: Math.round(res.tour.seconds / 60), arrive: new Date(now + res.tour.seconds * 1000), segments: segs });
         setSel(segs.map(() => 0));
@@ -294,6 +418,25 @@ export function JourneyScreen({ data, pos, to: initialTo }: { data: Data; pos: L
   }
 
   const orderChanged = result?.optimised && result.order.some((v, i) => v !== i);
+  const firstJourney = result?.segments[0]?.journeys[sel[0] ?? 0];
+  const routesUsed = result ? [...new Set(result.segments.flatMap((s) => s.journeys.flatMap((j) => j.legs.filter((l) => l.mode === 'bus').map((l) => l.line!))))] : [];
+  const issues = useIssues(routesUsed);
+  const showCountdown = !!result && departAt - Date.now() < 3 * 3600_000 && departAt - Date.now() > -10 * 60_000;
+
+  const save = (title: string, days: number[], remind: number) => {
+    const j = firstJourney;
+    const b = j?.legs.find((l) => l.mode === 'bus');
+    const p: SavedPlan = {
+      id: plan?.id ?? `p${Date.now().toString(36)}`, title, points, optimise,
+      when: { mode: when.mode === 'arrive' ? 'arrive' : 'leave', time: when.mode === 'now' ? londonTime() : when.time, days, ...(days.length ? {} : { date: when.mode === 'now' ? londonDate() : when.date }) },
+      remind, created: plan?.created ?? Date.now(),
+      last: result ? { minutes: result.totalMin, routes: routesUsed, ...(b && j ? { board: { id: b.from.id, name: b.from.name, letter: b.from.letter, line: b.line!, walkSec: j.legs.slice(0, j.legs.indexOf(b)).reduce((t, l) => t + l.minutes * 60, 0) } } : {}) } : undefined,
+    };
+    upsertPlan(p);
+    if (remind) enableReminders();
+    setSaving(false);
+    setSavedNote(`Saved “${title}”${remind ? `, with a reminder ${remind} min before you leave` : ''}.`);
+  };
   return (
     <>
       <div className="shead">
@@ -323,6 +466,7 @@ export function JourneyScreen({ data, pos, to: initialTo }: { data: Data; pos: L
             );
           })}
         </ol>
+        <WhenBar when={when} onChange={setWhen} />
         <div className="se-actions">
           {vias < MAX_STOPS && (
             <button className="se-add" onClick={() => setPicking({ index: points.length - 1, insert: true })}><Plus size={17} aria-hidden="true" /> Add a stop on the way</button>
@@ -335,6 +479,14 @@ export function JourneyScreen({ data, pos, to: initialTo }: { data: Data; pos: L
           )}
         </div>
 
+        {saving && <SavePanel defaultTitle={plan?.title ?? (vias ? `Trip to ${to.name}` : `To ${to.name}`)} when={when} onSave={save} onClose={() => setSaving(false)} />}
+        {savedNote && <p className="notice okbox" role="status">{savedNote}</p>}
+        {result && !saving && (
+          <button className="ghostbtn savebtn" onClick={() => { setSaving(true); setSavedNote(null); }}>
+            {plan ? <><Bell size={16} aria-hidden="true" /> Update saved trip</> : <><BookmarkPlus size={16} aria-hidden="true" /> Save trip and remind me</>}
+          </button>
+        )}
+        {showCountdown && <LeaveCountdown leaveAt={departAt} j={firstJourney} />}
         {!ready && !error && <p className="empty">{resolved.some((x) => !x) ? 'Getting your location…' : 'Finding that place…'}</p>}
         {ready && !result && !error && <Searching data={data} to={to} />}
         {error && <div className="notice errbox"><span>Couldn’t plan this trip: {error}.</span></div>}
@@ -359,11 +511,11 @@ export function JourneyScreen({ data, pos, to: initialTo }: { data: Data; pos: L
           const fewest = rideCounts.length ? Math.min(...rideCounts) : 0;
           const isStop = si < result.segments.length - 1;
           return (
-            <section key={si} className="seg">
+            <section key={si} className="tripseg">
               {vias > 0 && <h4 className="sec">{si + 1}. To {nameOf(seg.to)}</h4>}
               {!seg.journeys.length && <p className="empty">No bus journey found for this part. Try a nearby stop.</p>}
               {seg.journeys.map((j, i) => (
-                <JourneyCard key={i} data={data} j={j} active={i === (sel[si] ?? 0)} fastest={j.minutes === fastest}
+                <JourneyCard key={i} data={data} j={j} issues={issues} active={i === (sel[si] ?? 0)} fastest={j.minutes === fastest}
                   fewest={j.rides === fewest && seg.journeys.filter((x) => x.rides === fewest).indexOf(j) === 0}
                   onSelect={() => setSel((s) => s.map((v, k) => (k === si ? i : v)))} />
               ))}

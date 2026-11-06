@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 
+// remembered so service updates can cover the routes you usually use
+const pushRecent = (id: string) => { try { const k = 'busline.recentRoutes.v1'; const a = JSON.parse(localStorage.getItem(k) ?? '[]'); localStorage.setItem(k, JSON.stringify([id, ...a.filter((x: string) => x !== id)].slice(0, 8))); } catch { /* ignore */ } };
+
 type Theme = 'auto' | 'light' | 'dark';
 export type Mode = 'live' | 'schematic';
 /** Screens shown in the live sheet; the last one in the stack is visible. */
@@ -7,7 +10,7 @@ export interface Overlay { stops: { lon: number; lat: number; c: string; hub: st
 export interface Focus { lat: number; lon: number; zoom: number }
 export interface Place { name: string; lat?: number; lon?: number; query?: string }
 export interface Trip { legs: { mode: string; c: string; path: [number, number][] }[]; points: { lon: number; lat: number; kind: 'start' | 'end' | 'change' | 'via'; c: string; label?: string }[] }
-export type Screen = { type: 'journey'; to: Place } | { type: 'nearby' } | { type: 'route'; id: string; dir?: string; focusHub?: string } | { type: 'place'; hub: string };
+export type Screen = { type: 'journey'; to: Place; planId?: string } | { type: 'updates' } | { type: 'nearby' } | { type: 'route'; id: string; dir?: string; focusHub?: string } | { type: 'place'; hub: string };
 export type MapProvider = 'google' | 'openfreemap' | 'versatiles';
 const PROVIDER_KEY = 'busline.mapProvider';
 const savedProvider = (): MapProvider => {
@@ -17,7 +20,8 @@ const savedProvider = (): MapProvider => {
 interface State {
   mode: Mode;
   stack: Screen[];
-  openJourney: (to: Place) => void;
+  openJourney: (to: Place, planId?: string) => void;
+  openUpdates: () => void;
   /** set while a journey search runs: the map 'searches' the network */
   searching: { from: { lat: number; lon: number }; to: Place } | null;
   setSearching: (s: State['searching']) => void;
@@ -53,7 +57,8 @@ interface State {
 export const useStore = create<State>((set, get) => ({
   mode: 'live',
   stack: [{ type: 'nearby' }],
-  openJourney: (to) => set({ stack: [...get().stack, { type: 'journey', to }], route: null }),
+  openJourney: (to, planId) => set({ stack: [...get().stack, { type: 'journey', to, planId }], route: null }),
+  openUpdates: () => set({ stack: [...get().stack, { type: 'updates' }], route: null }),
   searching: null,
   setSearching: (searching) => set({ searching }),
   trip: null,
@@ -63,7 +68,7 @@ export const useStore = create<State>((set, get) => ({
   focus: null,
   setFocus: (focus) => set({ focus }),
   // `route` mirrors the visible route screen so the map can highlight it
-  openRoute: (id, dir, focusHub) => set({ stack: [...get().stack, { type: 'route', id, dir, focusHub }], route: id }),
+  openRoute: (id, dir, focusHub) => { pushRecent(id); set({ stack: [...get().stack, { type: 'route', id, dir, focusHub }], route: id }); },
   openPlace: (hub) => set({ stack: [...get().stack, { type: 'place', hub }], route: null }),
   back: () => {
     const stack = get().stack.length > 1 ? get().stack.slice(0, -1) : get().stack;

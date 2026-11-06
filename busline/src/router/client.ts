@@ -17,10 +17,10 @@ function get() {
 export const warmPlanner = () => get().postMessage({ warm: true });
 
 /** Plan start → stops → destination (two points = a simple journey). */
-export function planTrip(points: TourRequest['points'], dwell: number[], optimise: boolean, clock: number): Promise<TourResponse> {
+export function planTrip(points: TourRequest['points'], dwell: number[], optimise: boolean, clock: number, day: number, arriveBy = false): Promise<TourResponse> {
   const id = ++seq;
   return new Promise((resolve) => {
     pending.set(id, resolve);
-    get().postMessage({ id, points, dwell, optimise, clock } satisfies TourRequest);
+    get().postMessage({ id, points, dwell, optimise, clock, day, arriveBy } satisfies TourRequest);
   });
 }

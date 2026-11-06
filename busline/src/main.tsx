@@ -10,6 +10,7 @@ import { LiveMap, PROVIDERS, type Provider } from './live/LiveMap';
 import { NearbySheet } from './live/NearbySheet';
 import { useArrivals, useLocation, useNearby } from './live/api';
 import { warmPlanner } from './router/client';
+import { startReminders } from './live/reminders';
 
 function ThemeButton() {
   const { theme, cycleTheme } = useStore();
@@ -78,6 +79,8 @@ function Live({ data }: { data: Data }) {
   useEffect(() => {
     fetch('/data/stops.json').then((r) => r.json()).then((rows: [string, number, number, string][]) => setStopHub(new Map(rows.map((r) => [r[0], r[3]]))));
   }, []);
+  // reminders for saved trips (while the app is open or in the background)
+  useEffect(() => startReminders(), []);
   // get the journey planner's network ready in the background once the home screen has settled
   useEffect(() => { const t = window.setTimeout(warmPlanner, 4000); return () => clearTimeout(t); }, []);
   const ids = useMemo(() => (stops ?? []).slice(0, 12).map((s) => s.id), [stops]);

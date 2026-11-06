@@ -11,6 +11,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cachePath } from './lib/http.ts';
+import { altIndex, weekdayDepartures } from './fetch-timetables.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT = join(here, '..', 'public', 'data');
@@ -49,6 +50,45 @@ function headway(tt: any, night: boolean): number | null {
   return Math.min(60, Math.max(2, gaps[gaps.length >> 1])) * 60;
 }
 
+/** Day types × periods (minutes after midnight) for time-of-day frequencies. */
+export const PERIODS = [0, 300, 420, 600, 960, 1140, 1440]; // night, early, am peak, day, pm peak, evening
+const DAYTYPES = ['weekday', 'saturday', 'sunday'] as const;
+
+function scheduleFor(scheds: any[], type: (typeof DAYTYPES)[number]) {
+  const score = (n: string) => {
+    const s = n.toLowerCase();
+    if (type === 'saturday') return s === 'saturday' ? 10 : s.includes('saturday') ? 5 : -1;
+    if (type === 'sunday') return s === 'sunday' ? 10 : s.includes('sunday') ? 5 : -1;
+    if (/saturday|sunday/.test(s)) return -1;
+    let v = 0;
+    if (/monday to friday|mon-fri/.test(s)) v += 8;
+    if (/monday to thursday|mon-th/.test(s)) v += 7;
+    if (/tuesday|wednesday/.test(s)) v += 6;
+    if (/school/.test(s) && !/non-school/.test(s)) v += 2; // term time is the usual case
+    if (/friday$/.test(s)) v -= 1;
+    return v;
+  };
+  const best = [...scheds].sort((a, b) => score(b.name) - score(a.name))[0];
+  return best && score(best.name) >= 0 ? best : null;
+}
+
+/** 18 headways (s): 3 day types × 6 periods; 0 = no service in that period. */
+function frequencies(tt: any): number[] | null {
+  const scheds: any[] = tt?.timetable?.routes?.flatMap((r: any) => r.schedules) ?? [];
+  if (!scheds.length) return null;
+  const out: number[] = [];
+  for (const type of DAYTYPES) {
+    const sch = scheduleFor(scheds, type);
+    const mins = (sch?.knownJourneys ?? []).map((j: any) => (Number(j.hour) * 60 + Number(j.minute)) % 1440);
+    for (let p = 0; p < PERIODS.length - 1; p++) {
+      const n = mins.filter((m: number) => m >= PERIODS[p] && m < PERIODS[p + 1]).length;
+      const len = PERIODS[p + 1] - PERIODS[p];
+      out.push(n === 0 ? 0 : Math.round(Math.min(60, Math.max(2, len / n)) * 60));
+    }
+  }
+  return out;
+}
+
 function main() {
   const files = readdirSync(join(OUT, 'r')).filter((f) => f.endsWith('.json'));
   const stopIndex = new Map<string, number>();
@@ -59,7 +99,7 @@ function main() {
     return i;
   };
 
-  const patterns: { r: string; d: string; to: string; n: 0 | 1; s: number[]; t: number[]; h: number; src: 'tt' | 'est' }[] = [];
+  const patterns: { r: string; d: string; to: string; n: 0 | 1; s: number[]; t: number[]; h: number; w?: number[]; src: 'tt' | 'est' }[] = [];
   let fromTimetable = 0, estimated = 0, headwayKnown = 0;
   for (const f of files) {
     const det: Detail = JSON.parse(readFileSync(join(OUT, 'r', f), 'utf8'));
@@ -96,9 +136,18 @@ function main() {
         for (let i = 1; i < t.length; i++) if (t[i] < t[i - 1]) t[i] = t[i - 1];
         fromTimetable++;
       } else estimated++;
-      const h = headway(tt, night);
+      // frequencies: if the first stop is a short extension, use the timetable from further along
+      let freqTT = tt;
+      if (weekdayDepartures(tt) < 10) {
+        const alt = readTimetable(det.id, d.stops[altIndex(d.stops.length)][0], d.dir);
+        if (weekdayDepartures(alt) > weekdayDepartures(tt)) freqTT = alt;
+      }
+      // still sparse (re-fetch not done yet): don't trust it, fall back to the default rule
+      const sparse = weekdayDepartures(freqTT) < 10 && !night;
+      const w = sparse ? null : frequencies(freqTT);
+      const h = sparse ? null : headway(freqTT, night);
       if (h) headwayKnown++;
-      patterns.push({ r: det.id, d: d.dir, to: d.to, n: night ? 1 : 0, s, t: t.map((x) => Math.round(x)), h: h ?? (night ? 30 * 60 : DEFAULT_HEADWAY_S), src: pins.length ? 'tt' : 'est' });
+      patterns.push({ r: det.id, d: d.dir, to: d.to, n: night ? 1 : 0, s, t: t.map((x) => Math.round(x)), h: h ?? (night ? 30 * 60 : DEFAULT_HEADWAY_S), ...(w ? { w } : {}), src: pins.length ? 'tt' : 'est' });
     }
   }
   const r5 = (x: number) => Math.round(x * 1e5) / 1e5;

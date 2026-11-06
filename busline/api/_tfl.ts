@@ -1,12 +1,12 @@
 // Shared helper for the serverless functions. TFL_APP_KEY stays on the server.
 const BASE = 'https://api.tfl.gov.uk';
 
-export async function tfl<T>(path: string, params: Record<string, string> = {}): Promise<T> {
+export async function tfl<T>(path: string, params: Record<string, string> = {}, timeoutMs = 8000): Promise<T> {
   const url = new URL(BASE + path);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   const key = process.env.TFL_APP_KEY;
   if (key) url.searchParams.set('app_key', key);
-  const res = await fetch(url, { headers: { 'User-Agent': 'busline-london/0.2' }, signal: AbortSignal.timeout(8000) });
+  const res = await fetch(url, { headers: { 'User-Agent': 'busline-london/0.2' }, signal: AbortSignal.timeout(timeoutMs) });
   if (!res.ok) throw new Error(`TfL ${res.status}`);
   return res.json() as Promise<T>;
 }

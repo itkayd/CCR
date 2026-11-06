@@ -11,12 +11,15 @@
 
 export interface Network {
   stops: { id: string[]; name: string[]; letter: string[]; lat: number[]; lon: number[] };
-  patterns: { r: string; d: string; to: string; n: 0 | 1; s: number[]; t: number[]; h: number }[];
+  /** w: 18 headways (s) = [weekday, saturday, sunday] × 6 periods; 0 = not running */
+  patterns: { r: string; d: string; to: string; n: 0 | 1; s: number[]; t: number[]; h: number; w?: number[] }[];
 }
 
 export interface PlanOptions {
   /** seconds since London midnight, for picking day/night routes */
   clock: number;
+  /** day of week (0 = Sunday … 6 = Saturday); defaults to a weekday */
+  day?: number;
   maxRides?: number;
   walkSpeed?: number;   // m/s
   maxAccessM?: number;  // walk to the first stop / from the last
@@ -37,6 +40,8 @@ export interface Pt { name: string; lat: number; lon: number; stop?: number }
 export interface Plan { seconds: number; rides: number; walkMetres: number; legs: Leg[] }
 
 const R = 6371000, K = Math.PI / 180;
+/** period starts in minutes; must match scripts/network.ts */
+const PERIOD_STARTS = [0, 300, 420, 600, 960, 1140];
 const dist = (la1: number, lo1: number, la2: number, lo2: number) =>
   Math.hypot((lo2 - lo1) * K * Math.cos(((la1 + la2) / 2) * K), (la2 - la1) * K) * R;
 
@@ -46,6 +51,8 @@ export class Router {
   private grid = new Map<string, number[]>();
   private foot: { to: number; m: number }[][];
   private readonly CELL = 0.004; // ≈ 280–450 m
+  /** headways used by the last plan() call, for describing its legs */
+  private headwayNow: number[] = [];
 
   constructor(net: Network, transferM = 300) {
     this.net = net;
@@ -81,7 +88,17 @@ export class Router {
     const walk = o.walkSpeed ?? 1.3, maxRides = o.maxRides ?? 4, access = o.maxAccessM ?? 800;
     const TRANSFER_PENALTY = 90; // s, getting off and finding the next stop
     const night = o.clock < 5 * 3600 || o.clock > 24 * 3600 - 1800;
-    const active = patterns.map((p) => (night ? true : p.n === 0) && !o.banned?.has(p.r));
+    // how often each pattern runs at this day and time (0 = not running)
+    const dayType = o.day === 6 ? 1 : o.day === 0 ? 2 : 0;
+    let period = 0;
+    for (let i = 0; i < PERIOD_STARTS.length; i++) if (o.clock / 60 >= PERIOD_STARTS[i]) period = i;
+    const headway = patterns.map((p) => {
+      if (o.banned?.has(p.r)) return 0;
+      if (p.w) return p.w[dayType * 6 + Math.max(0, Math.min(5, period))];
+      return (night ? true : p.n === 0) ? p.h : 0; // no timetable: old day/night rule
+    });
+    const active = headway.map((h) => h > 0);
+    this.headwayNow = headway;
 
     const INF = 1e12;
     // per round: arrival time, and how we got there
@@ -116,7 +133,7 @@ export class Router {
       const improved = new Set<number>();
       for (const [p, start] of queue) {
         const P = patterns[p];
-        const wait = Math.min(P.h / 2, 15 * 60);
+        const wait = Math.min(headway[p] / 2, 15 * 60);
         let boardPos = -1, boardTime = INF;
         for (let i = start; i < P.s.length; i++) {
           const s = P.s[i];
@@ -200,7 +217,7 @@ export class Router {
         const ride = P.t[ai] - P.t[bi];
         const reachBoard = arr[r - 1][board];
         const wait = arr[r][s] - ride - reachBoard;
-        legs.push({ mode: 'bus', route: P.r, towards: P.to, pattern: p, board, alight: s, stops: P.s.slice(bi, ai + 1), wait, ride, start: reachBoard, headway: P.h });
+        legs.push({ mode: 'bus', route: P.r, towards: P.to, pattern: p, board, alight: s, stops: P.s.slice(bi, ai + 1), wait, ride, start: reachBoard, headway: this.headwayNow[p] || P.h });
         s = board; r--; continue;
       }
       if (type === 1) { // walked from the origin
@@ -274,10 +291,31 @@ export function planTour(router: Router, points: TourPoint[], dwell: number[], o
   let t = 0;
   for (let i = 0; i < order.length - 1; i++) {
     const a = order[i], b = order[i + 1];
-    const clock = (o.clock + t) % 86400;
-    const plans = router.options(points[a], points[b], { ...o, clock }, 3);
+    const abs = o.clock + t;
+    const clock = abs % 86400;
+    const day = o.day === undefined ? undefined : (o.day + Math.floor(abs / 86400)) % 7; // past midnight → next day
+    const plans = router.options(points[a], points[b], { ...o, clock, day }, 3);
     segments.push({ from: a, to: b, plans, start: t });
     t += (plans[0]?.seconds ?? 0) + (i + 1 < order.length - 1 ? dwell[b] ?? 0 : 0);
   }
   return { order, segments, seconds: t, optimised: !!o.optimise && mids.length >= 2, tried };
+}
+
+/** Arrive by `target` (clock seconds): work backwards to the latest departure that makes it. */
+export function planTourArriveBy(router: Router, points: TourPoint[], dwell: number[], o: PlanOptions & { optimise?: boolean }): Tour & { departOffset: number } {
+  const target = o.clock;
+  let dep = target - 45 * 60;
+  let tour = planTour(router, points, dwell, { ...o, ...at(dep, o.day) });
+  for (let i = 0; i < 3; i++) {
+    const next = target - tour.seconds - 120; // aim to arrive 2 min early
+    if (Math.abs(next - dep) < 60) break;
+    dep = next;
+    tour = planTour(router, points, dwell, { ...o, ...at(dep, o.day) });
+  }
+  return { ...tour, departOffset: dep - target };
+}
+function at(clock: number, day?: number) {
+  let c = clock, d = day;
+  while (c < 0) { c += 86400; if (d !== undefined) d = (d + 6) % 7; }
+  return { clock: c % 86400, day: d };
 }

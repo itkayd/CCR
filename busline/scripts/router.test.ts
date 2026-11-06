@@ -69,3 +69,21 @@ test('multi-stop: best order beats the order given', () => {
   assert.equal(best.tried, 7, 'tried all 6 orders');
   assert.equal(best.segments.length, 4);
 });
+
+import { planTourArriveBy } from '../src/router/raptor.ts';
+test('time of day and day of week change the plan', () => {
+  const from = { lat: 51.4627, lon: -0.1145 }, to = { lat: 51.5392, lon: -0.1426 };
+  const weekdayNoon = R.plan(from, to, { clock: noon, day: 3 })[0];
+  const sunday7am = R.plan(from, to, { clock: 7 * 3600, day: 0 })[0];
+  assert.ok(weekdayNoon && sunday7am);
+  // early Sunday buses are less frequent, so waiting (and the trip) should not be shorter
+  assert.ok(sunday7am.seconds >= weekdayNoon.seconds - 120, `Sun 7am ${Math.round(sunday7am.seconds / 60)} vs weekday ${Math.round(weekdayNoon.seconds / 60)}`);
+});
+test('arrive by: leaves early enough to make it', () => {
+  const pts = [{ lat: 51.4627, lon: -0.1145 }, { lat: 51.5392, lon: -0.1426 }];
+  const target = 9 * 3600;
+  const t = planTourArriveBy(R, pts, [0, 0], { clock: target, day: 2 });
+  assert.ok(t.departOffset < 0, 'departs before the arrival time');
+  assert.ok(t.departOffset + t.seconds <= 60, `arrives by the target (${Math.round((t.departOffset + t.seconds) / 60)} min late at most 1)`);
+  assert.ok(t.departOffset + t.seconds >= -20 * 60, 'does not leave absurdly early');
+});

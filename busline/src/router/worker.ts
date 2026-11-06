@@ -1,14 +1,16 @@
 /// <reference lib="webworker" />
 // Runs the planner off the main thread. Loads the network once, then answers requests.
-import { Router, planTour, type Network, type Plan, type Tour, type TourPoint } from './raptor';
+import { Router, planTour, planTourArriveBy, type Network, type Plan, type Tour, type TourPoint } from './raptor';
 
 let router: Router | null = null;
 let loading: Promise<Router> | null = null;
 const load = () => (loading ??= fetch('/data/network.json').then((r) => r.json()).then((n: Network) => (router = new Router(n))));
 
-export interface TourRequest { id: number; points: TourPoint[]; dwell: number[]; optimise: boolean; clock: number }
+/** clock/day: when to leave, or with arriveBy, when to arrive (London time). */
+export interface TourRequest { id: number; points: TourPoint[]; dwell: number[]; optimise: boolean; clock: number; day: number; arriveBy?: boolean }
 export type StopTable = { id: string[]; name: string[]; letter: string[]; lat: number[]; lon: number[] };
-export interface TourResponse { id: number; tour?: Tour; stops?: StopTable; error?: string; ms?: number }
+/** departOffset: seconds from the requested time to departure (negative for arrive-by). */
+export interface TourResponse { id: number; tour?: Tour; departOffset?: number; stops?: StopTable; error?: string; ms?: number }
 
 /** Send only the stop details the plans use, renumbered. */
 function compact(r: Router, plans: Plan[]): StopTable {
@@ -30,13 +32,14 @@ function compact(r: Router, plans: Plan[]): StopTable {
 
 self.onmessage = async (e: MessageEvent<TourRequest | { warm: true }>) => {
   if ('warm' in e.data) { load().catch(() => {}); return; }
-  const { id, points, dwell, optimise, clock } = e.data;
+  const { id, points, dwell, optimise, clock, day, arriveBy } = e.data;
   try {
     const r = router ?? (await load());
     const t0 = performance.now();
-    const tour = planTour(r, points, dwell, { clock, optimise });
+    const res = arriveBy ? planTourArriveBy(r, points, dwell, { clock, day, optimise }) : { ...planTour(r, points, dwell, { clock, day, optimise }), departOffset: 0 };
+    const { departOffset, ...tour } = res;
     const stops = compact(r, tour.segments.flatMap((s) => s.plans));
-    (self as unknown as Worker).postMessage({ id, tour, stops, ms: Math.round(performance.now() - t0) } satisfies TourResponse);
+    (self as unknown as Worker).postMessage({ id, tour, departOffset, stops, ms: Math.round(performance.now() - t0) } satisfies TourResponse);
   } catch (err) {
     (self as unknown as Worker).postMessage({ id, error: String((err as Error).message ?? err) } satisfies TourResponse);
   }

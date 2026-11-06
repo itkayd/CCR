@@ -1,0 +1,14 @@
+{
+  "name": "Busline London",
+  "short_name": "Busline",
+  "description": "London buses made easy: nearby live times, routes, connections and trip planning.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#EEF2F0",
+  "theme_color": "#0B6E69",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
