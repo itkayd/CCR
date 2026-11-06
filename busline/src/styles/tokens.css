@@ -140,9 +140,9 @@ button { font: inherit; color: inherit; }
   display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
 }
 .floatrow { display: flex; gap: 8px; align-items: center; }
-.subtabs { display: flex; gap: 6px; }
+.subtabs { display: flex; gap: 6px; flex-wrap: wrap; max-width: calc(100vw - 90px); }
 .subtabs button {
-  height: 36px; padding: 0 14px; border-radius: 999px; cursor: pointer; font-weight: 700; font-size: 13px;
+  height: 36px; padding: 0 12px; min-width: 44px; border-radius: 999px; cursor: pointer; font-weight: 700; font-size: 13px;
   background: var(--surface); color: var(--muted); border: 1px solid var(--rule);
 }
 .subtabs button[aria-selected="true"] { color: var(--accent); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }

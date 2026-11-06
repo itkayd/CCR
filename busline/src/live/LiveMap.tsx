@@ -6,9 +6,23 @@ import type { Data } from '../lib/data';
 import { useMedia } from '../lib/useMedia';
 import { resolvedTheme, useStore } from '../store/store';
 import type { LatLon, NearbyStop } from './api';
+import { busStopIcon, googleLike } from './googleLike';
+
+/** Load a provider's style; the Google-like one is OpenFreeMap Liberty restyled in the browser. */
+function applyStyle(m: MLMap, provider: Provider, mode: 'light' | 'dark') {
+  const url = PROVIDERS[provider][mode];
+  if (provider === 'google') m.setStyle(url, { diff: false, transformStyle: (_prev, next) => googleLike(next, mode) });
+  else m.setStyle(url, { diff: false });
+}
 
 // Two free, keyless providers; the user picks one from the sub-tabs.
 export const PROVIDERS = {
+  google: {
+    label: 'Google-like',
+    light: 'https://tiles.openfreemap.org/styles/liberty',
+    dark: 'https://tiles.openfreemap.org/styles/liberty',
+    bold: ['Noto Sans Bold'],
+  },
   openfreemap: {
     label: 'OpenFreeMap',
     light: 'https://tiles.openfreemap.org/styles/liberty',
@@ -53,7 +67,7 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
   useEffect(() => {
     const m = new maplibregl.Map({
       container: el.current!,
-      style: PROVIDERS[provider][mode],
+      style: { version: 8, sources: {}, layers: [] },
       center: [pos?.lon ?? -0.1281, pos?.lat ?? 51.5081],
       zoom: 15,
       minZoom: 9,
@@ -66,6 +80,7 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
     m.touchZoomRotate.enableRotation();
     m.on('rotate', () => setBearing(m.getBearing()));
     m.on('style.load', () => setReady((n) => n + 1));
+    applyStyle(m, provider, mode);
     map.current = m;
     return () => { m.remove(); map.current = null; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -77,7 +92,7 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
     if (!map.current || (styleMode.current === mode && styleProvider.current === provider)) return;
     styleMode.current = mode;
     styleProvider.current = provider;
-    map.current.setStyle(PROVIDERS[provider][mode]);
+    applyStyle(map.current, provider, mode);
   }, [mode, provider]);
 
   // add our sources + layers after every style load
@@ -113,8 +128,15 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
         m.addLayer({ id: 'route-sel', type: 'line', source: 'routes', filter: ['==', ['get', 'r'], ''],
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: { 'line-color': ['get', 'c'], 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 2.5, 14, 4.5, 17, 7] } });
-        m.addLayer({ id: 'stops', type: 'circle', source: 'stops', minzoom: 15,
-          paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 15, 2.5, 18, 5], 'circle-color': '#8A9692', 'circle-stroke-color': PAPER[t], 'circle-stroke-width': 1 } });
+        if (styleProvider.current === 'google') {
+          // Google-style red bus-stop markers on every stop
+          if (!m.hasImage('busstop')) m.addImage('busstop', busStopIcon(), { pixelRatio: 2 });
+          m.addLayer({ id: 'stops', type: 'symbol', source: 'stops', minzoom: 15,
+            layout: { 'icon-image': 'busstop', 'icon-size': ['interpolate', ['linear'], ['zoom'], 15, 0.8, 18, 1.1], 'icon-allow-overlap': true, 'icon-ignore-placement': true } });
+        } else {
+          m.addLayer({ id: 'stops', type: 'circle', source: 'stops', minzoom: 15,
+            paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 15, 2.5, 18, 5], 'circle-color': '#8A9692', 'circle-stroke-color': PAPER[t], 'circle-stroke-width': 1 } });
+        }
         m.addLayer({ id: 'nearby', type: 'circle', source: 'nearby',
           paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 5, 17, 11], 'circle-color': PAPER[t], 'circle-stroke-color': ACCENT[t], 'circle-stroke-width': 2.5 } });
         m.addLayer({ id: 'nearby-letter', type: 'symbol', source: 'nearby', minzoom: 14.5,

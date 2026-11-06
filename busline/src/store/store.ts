@@ -2,10 +2,10 @@ import { create } from 'zustand';
 
 type Theme = 'auto' | 'light' | 'dark';
 export type Mode = 'live' | 'schematic';
-export type MapProvider = 'openfreemap' | 'versatiles';
+export type MapProvider = 'google' | 'openfreemap' | 'versatiles';
 const PROVIDER_KEY = 'busline.mapProvider';
 const savedProvider = (): MapProvider => {
-  try { const v = localStorage.getItem(PROVIDER_KEY); return v === 'versatiles' ? 'versatiles' : 'openfreemap'; } catch { return 'openfreemap'; }
+  try { const v = localStorage.getItem(PROVIDER_KEY); return v === 'versatiles' || v === 'openfreemap' ? v : 'google'; } catch { return 'google'; }
 };
 
 interface State {
