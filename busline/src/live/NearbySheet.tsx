@@ -5,11 +5,12 @@ import { NEUTRAL } from '../lib/colour';
 import { colourAt, routeSort, type Data } from '../lib/data';
 import { useStore } from '../store/store';
 import { distM, type Arrival, type LatLon, type LocState, type NearbyStop } from './api';
+import { PlaceScreen, RouteScreen } from './screens';
 
 const HEADER_PX = 0; // no app header on the live map
 const PEEK_PX = 148;
 
-export interface DirRow { stop: NearbyStop; dest: string; etas: number[]; walkMin: number }
+export interface DirRow { stop: NearbyStop; dir: string; dest: string; etas: number[]; walkMin: number }
 export interface Card { line: string; colour: string; rows: DirRow[]; nearest: number }
 
 /** Group live arrivals by route and direction, keeping the nearest stop for each. */
@@ -34,12 +35,12 @@ export function buildCards(data: Data, stopHub: Map<string, string>, pos: LatLon
       const dest = [...dests].sort((a, b) => b[1] - a[1])[0][0];
       const stop = byStop.get(stopId)!;
       if (!stop) continue;
-      rows.push({ stop, dest, etas: at.slice(0, 3).map((a) => a.eta), walkMin: Math.max(1, Math.round((dist.get(stopId) ?? 0) / 80)) });
+      rows.push({ stop, dir: list[0].dir, dest, etas: at.slice(0, 3).map((a) => a.eta), walkMin: Math.max(1, Math.round((dist.get(stopId) ?? 0) / 80)) });
     }
     if (!rows.length) {
       const stop = stops.filter((s) => s.lines.includes(line)).sort((a, b) => dist.get(a.id)! - dist.get(b.id)!)[0];
       if (!stop) continue;
-      rows.push({ stop, dest: stop.towards ? `Towards ${stop.towards}` : '', etas: [], walkMin: Math.max(1, Math.round(dist.get(stop.id)! / 80)) });
+      rows.push({ stop, dir: '', dest: stop.towards ? `Towards ${stop.towards}` : '', etas: [], walkMin: Math.max(1, Math.round(dist.get(stop.id)! / 80)) });
     }
     rows.sort((a, b) => (a.etas[0] ?? 1e9) - (b.etas[0] ?? 1e9));
     const route = data.routes.get(line);
@@ -53,7 +54,7 @@ export function buildCards(data: Data, stopHub: Map<string, string>, pos: LatLon
 
 const fmtEtas = (etas: number[]) => etas.map((s) => (s < 60 ? 'Due' : String(Math.floor(s / 60)))).join(', ');
 
-function LiveIcon() {
+export function LiveIcon() {
   return (
     <svg className="liveicon" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
       <path className="a1" d="M2 12a10 10 0 0 1 10-10" />
@@ -63,17 +64,17 @@ function LiveIcon() {
   );
 }
 
-function CardView({ card }: { card: Card }) {
-  const { route, setRoute } = useStore();
+export function CardView({ card }: { card: Card }) {
+  const { route, openRoute } = useStore();
   const active = route === card.line;
   return (
     <article className={`ncard${active ? ' active' : ''}`}>
-      <button className="ncard-head" onClick={() => setRoute(active ? null : card.line)} aria-pressed={active} aria-label={`Route ${card.line}, show on map`}>
+      <button className="ncard-head" onClick={() => openRoute(card.line, card.rows[0]?.dir || undefined)} aria-label={`Route ${card.line}: stops and connections`}>
         <Bus size={22} style={{ color: card.colour }} aria-hidden="true" />
         <span className="nbadge" style={{ background: card.colour }}>{card.line}</span>
       </button>
       {card.rows.map((r) => (
-        <button key={r.stop.id + r.dest} className="nrow" onClick={() => setRoute(card.line)}>
+        <button key={r.stop.id + r.dest} className="nrow" onClick={() => openRoute(card.line, r.dir || undefined)}>
           <span className="nrow-main">
             <span className="nrow-dest">{r.dest || 'No destination'}</span>
             <span className="nrow-stop">
@@ -94,7 +95,7 @@ function CardView({ card }: { card: Card }) {
 }
 
 function SearchResults({ data, q, onPick }: { data: Data; q: string; onPick: () => void }) {
-  const { setRoute } = useStore();
+  const { openRoute, openPlace } = useStore();
   const qq = q.trim().toUpperCase();
   const routes = [...data.routes.values()].filter((r) => r.id.startsWith(qq)).sort((a, b) => routeSort(a.id, b.id)).slice(0, 8);
   const ql = q.trim().toLowerCase();
@@ -106,16 +107,24 @@ function SearchResults({ data, q, onPick }: { data: Data; q: string; onPick: () 
       {routes.map((r) => {
         const c = r.via[0] ? data.hubs.get(r.via[0])!.colour! : NEUTRAL;
         return (
-          <button key={r.id} className="result" onClick={() => { setRoute(r.id); onPick(); }}>
+          <button key={r.id} className="result" onClick={() => { openRoute(r.id); onPick(); }}>
             <span className="nbadge" style={{ background: c }}>{r.id}</span>
             <span className="result-text">{r.a} ↔ {r.b}</span>
           </button>
         );
       })}
       {places.map((h) => (
-        <button key={h.id} className="result" onClick={() => { const r = h.routes[0]; if (r) setRoute(r); onPick(); }}>
+        <button key={h.id} className="result" onClick={() => { openPlace(h.id); onPick(); }}>
           <span className="pdot" style={{ background: h.major ? h.colour : 'var(--surface)', boxShadow: h.major ? undefined : 'inset 0 0 0 3px #8A9692' }} />
-          <span className="result-text">{h.name}<small>{h.routes.length} routes</small></span>
+          <span className="result-text">{h.name}
+            <span className="rbadges">
+              {h.routes.filter((r) => !/^6\d\d$/.test(r)).slice(0, 7).map((r) => {
+                const route = data.routes.get(r);
+                return <span key={r} className="cbadge" style={{ background: route ? colourAt(route, h.id, data.hubs) : NEUTRAL }}>{r}</span>;
+              })}
+              {h.routes.length > 7 && <small>+{h.routes.length - 7}</small>}
+            </span>
+          </span>
         </button>
       ))}
     </div>
@@ -126,7 +135,8 @@ export function NearbySheet({ data, stopHub, pos, locState, stops, error, arriva
   data: Data; stopHub: Map<string, string>; pos: LatLon | null; locState: LocState;
   stops: NearbyStop[] | null; error: string | null; arrivals: Arrival[] | null; updated: Date | null;
 }) {
-  const { setSheetInset } = useStore();
+  const { setSheetInset, stack } = useStore();
+  const top = stack[stack.length - 1];
   const [vh, setVh] = useState(() => window.innerHeight);
   useEffect(() => { const on = () => setVh(window.innerHeight); window.addEventListener('resize', on); return () => window.removeEventListener('resize', on); }, []);
   const snaps = useMemo(() => [`${PEEK_PX}px`, `${Math.round(vh * 0.46)}px`, `${vh - HEADER_PX - 64}px`], [vh]);
@@ -138,6 +148,8 @@ export function NearbySheet({ data, stopHub, pos, locState, stops, error, arriva
     setSheetInset(Math.min(px, Math.round(vh * 0.46)));
   }, [snap, snaps, vh, setSheetInset]);
 
+  useEffect(() => { if (top.type !== 'nearby' && snap === snaps[0]) setSnap(snaps[1]); }, [stack.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const cards = useMemo(() => (pos && stops ? buildCards(data, stopHub, pos, stops, arrivals) : []), [data, stopHub, pos, stops, arrivals]);
   const time = updated?.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
@@ -146,6 +158,10 @@ export function NearbySheet({ data, stopHub, pos, locState, stops, error, arriva
       <Drawer.Portal>
         <Drawer.Content className="nsheet" style={{ height: vh - HEADER_PX - 64 }} aria-describedby={undefined}>
           <Drawer.Handle className="handle" />
+          {top.type !== 'nearby' && <Drawer.Title className="sr-only">{top.type === 'route' ? `Route ${top.id}` : 'Stop'}</Drawer.Title>}
+          {top.type === 'route' && <RouteScreen key={`r-${top.id}-${stack.length}`} data={data} stopHub={stopHub} id={top.id} dir={top.dir} focusHub={top.focusHub} />}
+          {top.type === 'place' && <PlaceScreen key={`p-${top.hub}-${stack.length}`} data={data} stopHub={stopHub} hub={top.hub} />}
+          {top.type === 'nearby' && <>
           <div className="nsearch">
             <Search size={20} aria-hidden="true" />
             <input
@@ -177,6 +193,7 @@ export function NearbySheet({ data, stopHub, pos, locState, stops, error, arriva
               </>
             )}
           </div>
+          </>}
         </Drawer.Content>
       </Drawer.Portal>
     </Drawer.Root>

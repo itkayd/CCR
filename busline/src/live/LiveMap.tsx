@@ -11,6 +11,7 @@ import { dropBaseBusStops, googleLike, stopIcon } from './googleLike';
 const STOP_FALLBACK = '#D93A2B';
 /** naptanId → marker colour, filled when stops.json loads */
 const stopColour = new Map<string, string>();
+const stopHubOf = new Map<string, string>();
 
 /** Load a provider's style; the Google-like one is OpenFreeMap Liberty restyled in the browser. */
 function applyStyle(m: MLMap, provider: Provider, mode: 'light' | 'dark') {
@@ -58,7 +59,7 @@ let linesPromise: Promise<FC> | null = null;
 let stopsPromise: Promise<FC> | null = null;
 const loadLines = () => (linesPromise ??= fetch('/data/lines.json').then((r) => r.json()));
 const loadStops = () => (stopsPromise ??= fetch('/data/stops.json').then((r) => r.json()).then((rows: [string, number, number, string, string][]) => {
-  for (const [id, , , , c] of rows) stopColour.set(id, c);
+  for (const [id, , , hub, c] of rows) { stopColour.set(id, c); stopHubOf.set(id, hub); }
   return fc(rows.map(([id, lat, lon, hub, c]) => pt(lon, lat, { id, hub, c })));
 }));
 
@@ -67,7 +68,7 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
   const map = useRef<MLMap | null>(null);
   const [ready, setReady] = useState(0); // bumps after each style (re)load
   const [bearing, setBearing] = useState(0);
-  const { route, theme, sheetInset, recentre, provider } = useStore();
+  const { route, theme, sheetInset, recentre, provider, overlay, focus } = useStore();
   const systemDark = useMedia('(prefers-color-scheme: dark)');
   const mode = resolvedTheme(theme);
   void systemDark; // re-render on system theme change
@@ -126,6 +127,8 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
       add('majors', majors);
       add('nearby', fc([]));
       add('me', fc([]));
+      add('route-stops', fc([]));
+      add('buses', fc([]));
       // Draw routes above the whole base map: some styles (OpenFreeMap Dark) put road
       // casings after their first label layer, which hid the lines.
       const before = undefined;
@@ -133,7 +136,7 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
       if (!m.getLayer('routes-plain')) {
         m.addLayer({ id: 'routes-plain', type: 'line', source: 'routes', filter: ['==', ['get', 'm'], 0],
           layout: { 'line-cap': 'round', 'line-join': 'round' },
-          paint: { 'line-color': '#8A9692', 'line-opacity': 0.4, 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.8, 14, 1.5, 17, 2.5] } }, before);
+          paint: { 'line-color': t === 'dark' ? '#9AA7A3' : '#6F7C78', 'line-opacity': 0.75, 'line-width': width } }, before);
         m.addLayer({ id: 'routes', type: 'line', source: 'routes', filter: ['==', ['get', 'm'], 1],
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: { 'line-color': ['get', 'c'], 'line-opacity': 0.8, 'line-width': width } }, before);
@@ -160,6 +163,20 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
             'text-anchor': 'top', 'text-offset': [0, 1.15], 'text-optional': true, // letters hide when they collide
           },
           paint: { 'text-color': INK[t], 'text-halo-color': PAPER[t], 'text-halo-width': 1.6 } });
+        // selected route: its own stops at every zoom, and live buses on top
+        m.addLayer({ id: 'route-stops', type: 'symbol', source: 'route-stops', minzoom: 11,
+          layout: {
+            'icon-image': ['concat', 'stop-', ['get', 'c']],
+            'icon-size': ['interpolate', ['linear'], ['zoom'], 11, 0.45, 14, 0.7, 17, 1.05],
+            'icon-allow-overlap': true, 'icon-ignore-placement': true,
+          } });
+        m.addLayer({ id: 'buses-halo', type: 'circle', source: 'buses',
+          paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 9, 16, 14], 'circle-color': '#FFFFFF', 'circle-opacity': 0.95 } });
+        m.addLayer({ id: 'buses', type: 'circle', source: 'buses',
+          paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 7.5, 16, 12], 'circle-color': ['get', 'c'] } });
+        m.addLayer({ id: 'buses-label', type: 'symbol', source: 'buses',
+          layout: { 'text-field': ['get', 'label'], 'text-font': FONT_BOLD, 'text-size': ['interpolate', ['linear'], ['zoom'], 11, 8, 16, 11], 'text-allow-overlap': true, 'text-ignore-placement': true },
+          paint: { 'text-color': '#FFFFFF' } });
         m.addLayer({ id: 'majors', type: 'circle', source: 'majors',
           paint: {
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 3.5, 13, 6, 16, 9],
@@ -197,9 +214,48 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
     if (!m || !layersReady) return;
     loadStops().then(() => {
       (m.getSource('nearby') as GeoJSONSource | undefined)?.setData(fc((nearby ?? []).map((s) =>
-        pt(s.lon, s.lat, { id: s.id, letter: s.letter.length <= 3 ? s.letter : '', c: stopColour.get(s.id) ?? STOP_FALLBACK }))));
+        pt(s.lon, s.lat, { id: s.id, hub: stopHubOf.get(s.id) ?? '', letter: s.letter.length <= 3 ? s.letter : '', c: stopColour.get(s.id) ?? STOP_FALLBACK }))));
     });
   }, [nearby, layersReady]);
+
+  // route overlay (stops of the shown direction + live buses)
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !layersReady) return;
+    (m.getSource('route-stops') as GeoJSONSource | undefined)?.setData(fc((overlay?.stops ?? []).map((s) => pt(s.lon, s.lat, { c: s.c, hub: s.hub }))));
+    // nudge buses slightly back from the stop they are approaching so they don't hide it
+    (m.getSource('buses') as GeoJSONSource | undefined)?.setData(fc((overlay?.buses ?? []).map((b) => pt(b.lon, b.lat + 0.00012, { c: b.c, label: b.label }))));
+    if (m.getLayer('stops')) m.setPaintProperty('stops', 'icon-opacity', overlay ? 0.35 : 1);
+  }, [overlay, layersReady]);
+
+  // fly to a place
+  useEffect(() => {
+    if (focus) map.current?.flyTo({ center: [focus.lon, focus.lat], zoom: focus.zoom, duration: 700 });
+  }, [focus]);
+
+  // taps: stop or station → place screen; a line → route screen
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !layersReady) return;
+    const onClick = (e: maplibregl.MapMouseEvent) => {
+      const box: [[number, number], [number, number]] = [[e.point.x - 8, e.point.y - 8], [e.point.x + 8, e.point.y + 8]];
+      const layers = ['route-stops', 'nearby', 'stops', 'majors', 'route-sel', 'routes', 'routes-plain'].filter((l) => m.getLayer(l));
+      const f = m.queryRenderedFeatures(box, { layers })[0];
+      if (!f) return;
+      const st = useStore.getState();
+      if (f.layer.id === 'majors') st.openPlace(f.properties.id);
+      else if (f.properties.hub) st.openPlace(f.properties.hub);
+      else if (f.properties.r && f.properties.r !== st.route) st.openRoute(f.properties.r);
+    };
+    m.on('click', onClick);
+    const hover = (e: maplibregl.MapMouseEvent) => {
+      const box: [[number, number], [number, number]] = [[e.point.x - 6, e.point.y - 6], [e.point.x + 6, e.point.y + 6]];
+      const hitAny = m.queryRenderedFeatures(box, { layers: ['route-stops', 'nearby', 'stops', 'majors', 'routes', 'routes-plain'].filter((l) => m.getLayer(l)) }).length > 0;
+      m.getCanvas().style.cursor = hitAny ? 'pointer' : '';
+    };
+    m.on('mousemove', hover);
+    return () => { m.off('click', onClick); m.off('mousemove', hover); };
+  }, [layersReady]);
 
   // keep the map's centre above the sheet
   useEffect(() => { map.current?.easeTo({ padding: { top: 0, bottom: sheetInset, left: 0, right: 0 }, duration: 250 }); }, [sheetInset]);
@@ -246,5 +302,5 @@ function applySelection(m: MLMap, route: string | null) {
   m.setFilter('route-sel', ['==', ['get', 'r'], sel]);
   m.setFilter('route-sel-case', ['==', ['get', 'r'], sel]);
   m.setPaintProperty('routes', 'line-opacity', route ? 0.12 : 0.8);
-  m.setPaintProperty('routes-plain', 'line-opacity', route ? 0.12 : 0.4);
+  m.setPaintProperty('routes-plain', 'line-opacity', route ? 0.12 : 0.75);
 }

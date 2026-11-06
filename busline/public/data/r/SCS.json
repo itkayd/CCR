@@ -1,0 +1,1 @@
+{"id":"SCS","a":"Millennium Way","b":"Seagull Lane","dirs":[{"dir":"outbound","to":"Seagull Lane","stops":[["490002393MW","Millennium Way","→N",51.49434,0.00853],["490002392SL","Seagull Lane","→S",51.5087,0.01769]]},{"dir":"inbound","to":"Millennium Way","stops":[["490002392SL","Seagull Lane","→S",51.5087,0.01769],["490002393MW","Millennium Way","→N",51.49434,0.00853]]}]}

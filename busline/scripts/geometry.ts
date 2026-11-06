@@ -2,7 +2,8 @@
 //   public/data/lines.json  GeoJSON: each route's outbound line cut into one piece per
 //                           stop-to-stop interval, coloured by the major-station rule
 //                           (blend between the major behind and the major ahead).
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { cleanName } from '../src/lib/names.ts';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cachePath } from './lib/http.ts';
@@ -122,3 +123,39 @@ function main() {
 }
 
 main();
+
+// ---- per-route stop lists for the route screen: public/data/r/{ID}.json ----
+
+function routeDetails() {
+  const routes: any[] = readOut('routes.json');
+  const sections: any[] = read('/Line/Mode/bus/Route?serviceTypes=Regular');
+  const secById = new Map(sections.map((l) => [l.id.toUpperCase(), l.routeSections as any[]]));
+  const dir = join(OUT, 'r');
+  mkdirSync(dir, { recursive: true });
+  let files = 0;
+  for (const r of routes) {
+    const dirs: any[] = [];
+    for (const d of ['outbound', 'inbound']) {
+      let seq: any;
+      try { seq = read(`/Line/${r.id.toLowerCase()}/Route/Sequence/${d}`); } catch { continue; }
+      if (!seq?.orderedLineRoutes?.length) continue;
+      const info = new Map<string, any>();
+      for (const sps of seq.stopPointSequences ?? []) for (const p of sps.stopPoint ?? []) info.set(p.id, p);
+      const variants = seq.orderedLineRoutes.filter((v: any) => !v.serviceType || v.serviceType === 'Regular');
+      const ids: string[] = variants.reduce((a: any, b: any) => (b.naptanIds.length > a.naptanIds.length ? b : a)).naptanIds.filter((id: string) => info.has(id));
+      if (ids.length < 2) continue;
+      const sec = (secById.get(r.id) ?? []).find((s) => s.direction === d);
+      const stops = ids.map((id) => {
+        const p = info.get(id);
+        const letter = String(p.stopLetter ?? '').replace(/^->/, '→');
+        return [id, cleanName(p.name), letter.length <= 3 ? letter : '', Math.round(p.lat * 1e5) / 1e5, Math.round(p.lon * 1e5) / 1e5];
+      });
+      dirs.push({ dir: d, to: cleanName(sec?.destinationName) || stops[stops.length - 1][1], stops });
+    }
+    if (!dirs.length) continue;
+    writeFileSync(join(dir, `${r.id}.json`), JSON.stringify({ id: r.id, a: r.a, b: r.b, dirs }));
+    files++;
+  }
+  console.log(`route details: ${files} files`);
+}
+routeDetails();
