@@ -60,7 +60,10 @@ export function dropBaseBusStops(style: StyleSpecification): StyleSpecification 
     .filter((l) => l.id !== 'symbol-transit-bus') // VersaTiles
     .map((l) => (l.id === 'poi_transit' // OpenFreeMap Liberty
       ? ({ ...l, filter: ['match', ['get', 'class'], ['airport', 'rail'], true, false] } as LayerSpecification)
-      : l));
+      : /^poi_r\d+$/.test(l.id) && Array.isArray((l as { filter?: unknown }).filter)
+        // OpenFreeMap's general POI layers also draw bus stops (class "bus"); drop just those
+        ? ({ ...l, filter: ['all', (l as { filter: unknown }).filter, ['!=', ['get', 'class'], 'bus']] } as LayerSpecification)
+        : l));
   return { ...style, layers };
 }
 
