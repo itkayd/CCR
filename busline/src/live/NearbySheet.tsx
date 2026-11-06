@@ -5,7 +5,7 @@ import { NEUTRAL } from '../lib/colour';
 import { colourAt, isTram, lineLabel, routeSort, TRAM_COLOUR, type Data } from '../lib/data';
 import { useStore } from '../store/store';
 import { distM, type Arrival, type LatLon, type LocState, type NearbyStop } from './api';
-import { loadRouteDetail, PlaceScreen, RouteScreen, type RouteDetail } from './screens';
+import { loadRouteDetail, PlaceScreen, RouteScreen, VehicleScreen, useOperator, type RouteDetail } from './screens';
 import { JourneyScreen } from './journey';
 import { warmPlanner } from '../router/client';
 import { HomeExtras, UpdatesScreen } from './home';
@@ -128,12 +128,14 @@ export function CardView({ card }: { card: Card }) {
   const { route, openRoute } = useStore();
   const active = route === card.line;
   const fallback = useNoLiveRows(card);
+  const operator = useOperator(card.line);
   const rows = fallback ?? card.rows;
   return (
     <article className={`ncard${active ? ' active' : ''}`}>
       <button className="ncard-head" onClick={() => openRoute(card.line, card.rows[0]?.dir || undefined)} aria-label={`Route ${card.line}: stops and connections`}>
         {isTram(card.line) ? <TramFront size={22} style={{ color: card.colour }} aria-hidden="true" /> : <Bus size={22} style={{ color: card.colour }} aria-hidden="true" />}
         <span className={`nbadge${isTram(card.line) ? ' tram' : ''}`} style={{ background: card.colour }}>{lineLabel(card.line)}</span>
+        {operator && <span className="opname">{operator}</span>}
       </button>
       {rows.map((r) => (
         <button key={r.stop.id + r.dest} className="nrow" onClick={() => openRoute(card.line, r.dir || undefined)}>
@@ -235,11 +237,12 @@ export function NearbySheet({ data, stopHub, pos, locState, stops, error, retry,
       <Drawer.Portal>
         <Drawer.Content className="nsheet" style={{ height: vh - HEADER_PX - 64 }} aria-describedby={undefined}>
           <Drawer.Handle className="handle" />
-          {top.type !== 'nearby' && <Drawer.Title className="sr-only">{top.type === 'route' ? `Route ${top.id}` : top.type === 'journey' ? 'Journey' : top.type === 'updates' ? 'Service updates' : 'Stop'}</Drawer.Title>}
+          {top.type !== 'nearby' && <Drawer.Title className="sr-only">{top.type === 'route' ? `Route ${top.id}` : top.type === 'journey' ? 'Journey' : top.type === 'updates' ? 'Service updates' : top.type === 'vehicle' ? `Bus ${top.id}` : 'Stop'}</Drawer.Title>}
           {top.type === 'route' && <RouteScreen key={`r-${top.id}-${stack.length}`} data={data} stopHub={stopHub} id={top.id} dir={top.dir} focusHub={top.focusHub} />}
           {top.type === 'journey' && <JourneyScreen key={`j-${stack.length}`} data={data} pos={pos} to={top.to} plan={top.planId ? loadPlans().find((x) => x.id === top.planId) : undefined} />}
           {top.type === 'updates' && <UpdatesScreen data={data} nearbyLines={nearbyLines} />}
-          {top.type === 'place' && <PlaceScreen key={`p-${top.hub}-${stack.length}`} data={data} stopHub={stopHub} hub={top.hub} />}
+          {top.type === 'place' && <PlaceScreen key={`p-${top.hub}-${stack.length}`} data={data} stopHub={stopHub} hub={top.hub} stop={top.stop} />}
+          {top.type === 'vehicle' && <VehicleScreen key={`v-${top.id}`} data={data} stopHub={stopHub} id={top.id} line={top.line} />}
           {top.type === 'nearby' && <>
           <div className="nsearch">
             <Search size={20} aria-hidden="true" />

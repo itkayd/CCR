@@ -6,11 +6,11 @@ const pushRecent = (id: string) => { try { const k = 'busline.recentRoutes.v1'; 
 type Theme = 'auto' | 'light' | 'dark';
 export type Mode = 'live' | 'schematic';
 /** Screens shown in the live sheet; the last one in the stack is visible. */
-export interface Overlay { stops: { lon: number; lat: number; c: string; hub: string }[]; buses: { lon: number; lat: number; c: string; label: string }[] }
+export interface Overlay { stops: { lon: number; lat: number; c: string; hub: string }[]; buses: { lon: number; lat: number; c: string; label: string; v?: string; line?: string }[] }
 export interface Focus { lat: number; lon: number; zoom: number }
 export interface Place { name: string; lat?: number; lon?: number; query?: string }
 export interface Trip { legs: { mode: string; c: string; path: [number, number][] }[]; points: { lon: number; lat: number; kind: 'start' | 'end' | 'change' | 'via'; c: string; label?: string }[] }
-export type Screen = { type: 'journey'; to: Place; planId?: string } | { type: 'updates' } | { type: 'nearby' } | { type: 'route'; id: string; dir?: string; focusHub?: string } | { type: 'place'; hub: string };
+export type Screen = { type: 'journey'; to: Place; planId?: string } | { type: 'updates' } | { type: 'vehicle'; id: string; line: string } | { type: 'nearby' } | { type: 'route'; id: string; dir?: string; focusHub?: string } | { type: 'place'; hub: string; stop?: { id: string; lat: number; lon: number } };
 export type MapProvider = 'google' | 'openfreemap' | 'versatiles';
 const PROVIDER_KEY = 'busline.mapProvider';
 const savedProvider = (): MapProvider => {
@@ -35,7 +35,8 @@ interface State {
   focus: Focus | null;
   setFocus: (f: Focus) => void;
   openRoute: (id: string, dir?: string, focusHub?: string) => void;
-  openPlace: (hub: string) => void;
+  openPlace: (hub: string, stop?: { id: string; lat: number; lon: number }) => void;
+  openVehicle: (id: string, line: string) => void;
   back: () => void;
   home: () => void;
   provider: MapProvider;
@@ -74,7 +75,8 @@ export const useStore = create<State>((set, get) => ({
   setFocus: (focus) => set({ focus }),
   // `route` mirrors the visible route screen so the map can highlight it
   openRoute: (id, dir, focusHub) => { pushRecent(id); set({ stack: [...get().stack, { type: 'route', id, dir, focusHub }], route: id }); },
-  openPlace: (hub) => set({ stack: [...get().stack, { type: 'place', hub }], route: null }),
+  openPlace: (hub, stop) => set({ stack: [...get().stack, { type: 'place', hub, stop }], route: null }),
+  openVehicle: (id, line) => set({ stack: [...get().stack, { type: 'vehicle', id, line }], route: line }),
   back: () => {
     const stack = get().stack.length > 1 ? get().stack.slice(0, -1) : get().stack;
     const top = stack[stack.length - 1];

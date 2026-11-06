@@ -5,6 +5,7 @@ import { colourAt, routeSort, type Data, type Route } from '../lib/data';
 import { modeLabels } from '../lib/modes';
 import { useStore } from '../store/store';
 import { useArrivals, useNearby } from './api';
+import { loadOperators, loadStopsDb } from './stopsdb';
 import { buildCards, CardView, LiveIcon } from './NearbySheet';
 import { RouteIssues } from './home';
 
@@ -56,10 +57,11 @@ function Header({ children, onBack }: { children: React.ReactNode; onBack: () =>
 
 // ---------------------------------------------------------------- route screen
 export function RouteScreen({ data, stopHub, id, dir, focusHub }: { data: Data; stopHub: Map<string, string>; id: string; dir?: string; focusHub?: string }) {
-  const { back, openRoute, openPlace, setOverlay } = useStore();
+  const { back, openRoute, openPlace, setOverlay, openVehicle } = useStore();
   const route = data.routes.get(id);
   const detail = useRouteDetail(id);
   const vehicles = useVehicles(id);
+  const operator = useOperator(id);
   const [di, setDi] = useState(0);
   useEffect(() => {
     if (!detail) return;
@@ -102,7 +104,7 @@ export function RouteScreen({ data, stopHub, id, dir, focusHub }: { data: Data; 
     if (!rows.length) return;
     setOverlay({
       stops: rows.map((r) => ({ lon: r.lon, lat: r.lat, c: r.colour, hub: r.hubId })),
-      buses: rows.flatMap((r) => (busAt.get(r.naptan) ?? []).map(() => ({ lon: r.lon, lat: r.lat, c: r.colour, label: id }))),
+      buses: rows.flatMap((r) => (busAt.get(r.naptan) ?? []).map((b) => ({ lon: r.lon, lat: r.lat, c: r.colour, label: id, v: b.vehicle, line: id }))),
     });
   }, [rows, busAt, id, setOverlay]);
   useEffect(() => () => setOverlay(null), [setOverlay]);
@@ -127,7 +129,7 @@ export function RouteScreen({ data, stopHub, id, dir, focusHub }: { data: Data; 
         <span className="nbadge" style={{ background: head }}>{id}</span>
         <span className="shead-text">
           <b>{route.a} ↔ {route.b}</b>
-          <small>{rows.length} stops{vehicles ? <> <span className="dot" /> <LiveIcon /> {liveCount} bus{liveCount === 1 ? '' : 'es'} live</> : ''}</small>
+          <small>{operator && <>{operator}<span className="dot" /></>}{rows.length} stops{vehicles ? <> <span className="dot" /> <LiveIcon /> {liveCount} bus{liveCount === 1 ? '' : 'es'} live</> : ''}</small>
         </span>
       </Header>
       <div className="routeissues-wrap"><RouteIssues line={id} /></div>
@@ -168,7 +170,9 @@ export function RouteScreen({ data, stopHub, id, dir, focusHub }: { data: Data; 
                 <span className="tl-rail" aria-hidden="true"><span className="tl-dot" /></span>
                 <div className="tl-body">
                   {buses.length > 0 && (
-                    <span className="busnow"><Bus size={14} aria-hidden="true" /> Bus {mins(Math.min(...buses.map((b) => b.eta)))} away</span>
+                    <button className="busnow" onClick={() => openVehicle(buses.slice().sort((a, b) => a.eta - b.eta)[0].vehicle, id)} aria-label={`Track the bus ${mins(Math.min(...buses.map((b) => b.eta)))} away`}>
+                      <Bus size={14} aria-hidden="true" /> Bus {mins(Math.min(...buses.map((b) => b.eta)))} away<span className="track">Track</span>
+                    </button>
                   )}
                   <button className="tl-name" onClick={() => r.hubId && openPlace(r.hubId)}>
                     {r.name}{r.letter && <span className="letter">{r.letter}</span>}{i === here && <span className="youhere">You’re here</span>}
@@ -196,18 +200,29 @@ export function RouteScreen({ data, stopHub, id, dir, focusHub }: { data: Data; 
 }
 
 // ---------------------------------------------------------------- place screen
-export function PlaceScreen({ data, stopHub, hub }: { data: Data; stopHub: Map<string, string>; hub: string }) {
+export function PlaceScreen({ data, stopHub, hub, stop }: { data: Data; stopHub: Map<string, string>; hub: string; stop?: { id: string; lat: number; lon: number } }) {
   const { back, openRoute, setFocus, openJourney } = useStore();
   const h = data.hubs.get(hub);
-  const pos = useMemo(() => (h ? { lat: h.lat, lon: h.lon } : null), [h]);
+  // distances from the stop you tapped (or the place's centre)
+  const pos = useMemo(() => (stop ? { lat: stop.lat, lon: stop.lon } : h ? { lat: h.lat, lon: h.lon } : null), [h, stop]);
+  // live times start straight away for this place's own stops (known locally), in parallel
+  // with the stop names/lines lookup, so tapping a stop shows times in one round trip
+  const [ownIds, setOwnIds] = useState<string[]>(stop ? [stop.id] : []);
+  useEffect(() => {
+    loadStopsDb().then(({ byHub }) => {
+      const list = (byHub.get(hub) ?? []).slice().sort((a, b) => (pos ? Math.hypot(a.lat - pos.lat, a.lon - pos.lon) - Math.hypot(b.lat - pos.lat, b.lon - pos.lon) : 0));
+      const ids = list.map((x) => x.id);
+      if (stop && !ids.includes(stop.id)) ids.unshift(stop.id);
+      setOwnIds(ids.slice(0, 12));
+    });
+  }, [hub, stop, pos]);
   const { stops } = useNearby(pos);
+  const { arrivals } = useArrivals(ownIds, true);
   const here = useMemo(() => {
-    const own = (stops ?? []).filter((s) => stopHub.get(s.id) === hub);
+    const own = (stops ?? []).filter((s) => ownIds.includes(s.id) || stopHub.get(s.id) === hub);
     return own.length ? own : stops ?? [];
-  }, [stops, stopHub, hub]);
-  const ids = useMemo(() => here.slice(0, 12).map((s) => s.id), [here]);
-  const { arrivals } = useArrivals(ids, true);
-  useEffect(() => { if (h) setFocus({ lat: h.lat, lon: h.lon, zoom: 16.3 }); }, [h, setFocus]);
+  }, [stops, stopHub, hub, ownIds]);
+  useEffect(() => { if (pos) setFocus({ lat: pos.lat, lon: pos.lon, zoom: 16.6 }); }, [pos, setFocus]);
 
   if (!h || !pos) return <Header onBack={back}><b>Unknown place</b></Header>;
   const cards = stops ? buildCards(data, stopHub, pos, here, arrivals) : [];
@@ -240,6 +255,95 @@ export function PlaceScreen({ data, stopHub, hub }: { data: Data; stopHub: Map<s
             </button>
           ))}
         </div>
+      </div>
+    </>
+  );
+}
+
+/** Which company runs a route, e.g. "Stagecoach London". */
+export function useOperator(route: string | null | undefined) {
+  const [op, setOp] = useState<string | null>(null);
+  useEffect(() => { if (route) loadOperators().then((o) => setOp(o[route.toUpperCase()] ?? null)); }, [route]);
+  return route && /^TRAM$/i.test(route) ? 'Tram Operations Ltd' : op;
+}
+
+// ---------------------------------------------------------------- track one bus
+interface VehicleStop { stop: string; name: string; letter: string; eta: number }
+export function VehicleScreen({ data, stopHub, id, line }: { data: Data; stopHub: Map<string, string>; id: string; line: string }) {
+  const { back, openPlace, setOverlay, setFocus } = useStore();
+  const operator = useOperator(line);
+  const [v, setV] = useState<{ dest: string; stops: VehicleStop[]; at: number } | null>(null);
+  const [error, setError] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const t = window.setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  useEffect(() => {
+    let on = true;
+    const load = () => document.visibilityState === 'visible' && fetch(`/api/vehicle?id=${encodeURIComponent(id)}`).then((r) => r.json())
+      .then((d) => { if (!on) return; if (d.error) { setError(true); return; } setError(false); setV({ dest: d.dest, stops: d.stops ?? [], at: Date.now() }); })
+      .catch(() => on && setError(true));
+    load();
+    const t = window.setInterval(load, 15_000);
+    return () => { on = false; clearInterval(t); };
+  }, [id]);
+  const route = data.routes.get(line);
+  const colour = (hub: string) => (route && hub ? colourAt(route, hub, data.hubs) : NEUTRAL);
+  const head = v?.stops[0] ? colour(stopHub.get(v.stops[0].stop) ?? '') : NEUTRAL;
+  // map: bus at its next stop, upcoming stops as markers
+  const [pos, setPos] = useState<Map<string, { lat: number; lon: number }>>(new Map());
+  useEffect(() => { loadStopsDb().then(({ byId }) => setPos(new Map([...byId].map(([k, x]) => [k, { lat: x.lat, lon: x.lon }])))); }, []);
+  const firstPos = v?.stops[0] ? pos.get(v.stops[0].stop) : undefined;
+  useEffect(() => {
+    if (!v || !pos.size) return;
+    const pts = v.stops.map((s) => ({ s, p: pos.get(s.stop) })).filter((x) => x.p);
+    setOverlay({
+      stops: pts.map(({ s, p }) => ({ lon: p!.lon, lat: p!.lat, c: colour(stopHub.get(s.stop) ?? ''), hub: stopHub.get(s.stop) ?? '' })),
+      buses: pts.length ? [{ lon: pts[0].p!.lon, lat: pts[0].p!.lat, c: head, label: line }] : [],
+    });
+  }, [v, pos]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => setOverlay(null), [setOverlay]);
+  const centred = useRef(false);
+  useEffect(() => { if (firstPos && !centred.current) { centred.current = true; setFocus({ ...firstPos, zoom: 15.5 }); } }, [firstPos, setFocus]);
+
+  const age = v ? (now - v.at) / 1000 : 0;
+  const eta = (s: number) => { const left = s - age; return left < 45 ? 'due' : `${Math.round(left / 60)} min`; };
+  const clock = (s: number) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date((v?.at ?? now) + s * 1000));
+  return (
+    <>
+      <Header onBack={back}>
+        <span className="nbadge" style={{ background: head }}>{line}</span>
+        <span className="shead-text">
+          <b>{v?.dest ? `To ${v.dest}` : 'Tracking bus'}</b>
+          <small>{operator && <>{operator}<span className="dot" /></>}Bus {id}{v && <><span className="dot" /><LiveIcon /> live</>}</small>
+        </span>
+      </Header>
+      <div className="nlist" data-vaul-no-drag>
+        {!v && !error && <p className="empty">Finding this bus…</p>}
+        {error && <p className="notice">This bus has no live position right now. It may have finished its trip.</p>}
+        {v && v.stops.length > 0 && (
+          <section className="busnext" aria-live="polite">
+            <span className="muted">Next stop</span>
+            <b>{v.stops[0].name}</b>
+            <span>{eta(v.stops[0].eta)}{v.stops.length > 1 ? <><span className="dot" />then {v.stops[1].name}</> : ''}</span>
+          </section>
+        )}
+        <ol className="timeline">
+          {v?.stops.map((s, i) => {
+            const hubId = stopHub.get(s.stop) ?? '';
+            const hub = data.hubs.get(hubId);
+            return (
+              <li key={s.stop} className={`tl${hub?.major ? ' major' : ''}${i === 0 ? ' first here' : ''}${i === v.stops.length - 1 ? ' last' : ''}`} style={{ ['--c' as string]: colour(hubId) }}>
+                <span className="tl-rail" aria-hidden="true"><span className="tl-dot" /></span>
+                <div className="tl-body row-eta">
+                  <button className="tl-name" onClick={() => hubId && openPlace(hubId, pos.get(s.stop) ? { id: s.stop, ...pos.get(s.stop)! } : undefined)}>
+                    {s.name}{s.letter && <span className="letter">{s.letter}</span>}
+                  </button>
+                  <span className="tl-eta"><b>{eta(s.eta)}</b><small>{clock(s.eta)}</small></span>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+        {v && <p className="fineprint">Live from TfL, updated every 15 seconds.</p>}
       </div>
     </>
   );

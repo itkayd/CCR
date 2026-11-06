@@ -87,7 +87,7 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
       dragRotate: true,
       pitchWithRotate: false,
     });
-    m.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: 'Powered by TfL Open Data' }), 'bottom-left');
+    m.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: 'Powered by TfL Open Data · Operators: Wikipedia (CC BY-SA)' }), 'bottom-left');
     m.touchZoomRotate.enableRotation();
     m.on('rotate', () => setBearing(m.getBearing()));
     m.on('style.load', () => setReady((n) => n + 1));
@@ -250,7 +250,7 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
     if (!m || !layersReady) return;
     (m.getSource('route-stops') as GeoJSONSource | undefined)?.setData(fc((overlay?.stops ?? []).map((s) => pt(s.lon, s.lat, { c: s.c, hub: s.hub }))));
     // nudge buses slightly back from the stop they are approaching so they don't hide it
-    (m.getSource('buses') as GeoJSONSource | undefined)?.setData(fc((overlay?.buses ?? []).map((b) => pt(b.lon, b.lat + 0.00012, { c: b.c, label: b.label }))));
+    (m.getSource('buses') as GeoJSONSource | undefined)?.setData(fc((overlay?.buses ?? []).map((b) => pt(b.lon, b.lat + 0.00012, { c: b.c, label: b.label, v: b.v ?? '', line: b.line ?? '' }))));
     if (m.getLayer('stops')) m.setPaintProperty('stops', 'icon-opacity', overlay ? 0.35 : 1);
   }, [overlay, layersReady]);
 
@@ -312,18 +312,22 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
     if (!m || !layersReady) return;
     const onClick = (e: maplibregl.MapMouseEvent) => {
       const box: [[number, number], [number, number]] = [[e.point.x - 8, e.point.y - 8], [e.point.x + 8, e.point.y + 8]];
-      const layers = ['route-stops', 'nearby', 'stops', 'majors', 'route-sel', 'routes', 'routes-plain'].filter((l) => m.getLayer(l));
+      const layers = ['buses', 'route-stops', 'nearby', 'stops', 'majors', 'route-sel', 'routes', 'routes-plain'].filter((l) => m.getLayer(l));
       const f = m.queryRenderedFeatures(box, { layers })[0];
       if (!f) return;
       const st = useStore.getState();
-      if (f.layer.id === 'majors') st.openPlace(f.properties.id);
-      else if (f.properties.hub) st.openPlace(f.properties.hub);
+      if (f.layer.id === 'buses') { if (f.properties.v) st.openVehicle(f.properties.v, f.properties.line); }
+      else if (f.layer.id === 'majors') st.openPlace(f.properties.id);
+      else if (f.properties.hub) {
+        const [lon, lat] = (f.geometry as GeoJSON.Point).coordinates;
+        st.openPlace(f.properties.hub, f.properties.id ? { id: f.properties.id, lat, lon } : undefined);
+      }
       else if (f.properties.r && f.properties.r !== st.route) st.openRoute(f.properties.r);
     };
     m.on('click', onClick);
     const hover = (e: maplibregl.MapMouseEvent) => {
       const box: [[number, number], [number, number]] = [[e.point.x - 6, e.point.y - 6], [e.point.x + 6, e.point.y + 6]];
-      const hitAny = m.queryRenderedFeatures(box, { layers: ['route-stops', 'nearby', 'stops', 'majors', 'routes', 'routes-plain'].filter((l) => m.getLayer(l)) }).length > 0;
+      const hitAny = m.queryRenderedFeatures(box, { layers: ['buses', 'route-stops', 'nearby', 'stops', 'majors', 'routes', 'routes-plain'].filter((l) => m.getLayer(l)) }).length > 0;
       m.getCanvas().style.cursor = hitAny ? 'pointer' : '';
     };
     m.on('mousemove', hover);

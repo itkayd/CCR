@@ -471,3 +471,16 @@ button.cbadge::after { content: ''; position: absolute; inset: -6px -2px; }
 .ichanges, .timeline, .herebar, .routeissues { flex: none; }
 
 .livepin { padding: 0 12px 10px; flex: none; }
+
+/* ================= operators, track a bus ================= */
+.opname { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--muted); text-align: right; }
+button.busnow { border: 0; cursor: pointer; font: inherit; font-size: 12px; font-weight: 800; min-height: 30px; }
+.busnow .track { margin-left: 4px; padding: 0 6px; border-radius: 999px; background: var(--ink); color: var(--paper); font-size: 11px; }
+.busnext { background: var(--ink); color: var(--paper); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+.busnext .muted { color: color-mix(in srgb, var(--paper) 70%, transparent); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.busnext b { font-size: 20px; font-weight: 800; }
+.busnext > span:last-child { display: inline-flex; align-items: center; flex-wrap: wrap; }
+.row-eta { flex-direction: row !important; align-items: center; justify-content: space-between; }
+.tl-eta { display: flex; flex-direction: column; align-items: flex-end; flex: none; }
+.tl-eta b { font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; }
+.tl-eta small { font: 700 11px 'Overpass Mono', monospace; color: var(--muted); }

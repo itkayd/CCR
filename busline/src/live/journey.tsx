@@ -9,6 +9,12 @@ import { planTrip, warmPlanner } from '../router/client';
 import type { Plan } from '../router/raptor';
 import { DAY_NAMES, countdown, nextOccurrence, londonClockAt, londonDate, londonEpoch, londonTime, upsertPlan, useIssues, type Issue, type SavedPlan } from './plans';
 import { enableReminders } from './reminders';
+import { useOperator } from './screens';
+
+function OperatorLine({ line }: { line: string | null }) {
+  const op = useOperator(line);
+  return op ? <span className="muted">Run by {op}</span> : null;
+}
 import { START, track, view, type Progress } from './onboard';
 
 // ---------------------------------------------------------------- display model
@@ -146,6 +152,7 @@ function LegList({ data, j, liveEta, issues }: { data: Data; j: UJourney; liveEt
               <>
                 <b><span className="cbadge" style={{ background: legColour(data, l) }}>{lineLabel(l.line!)}</span> towards {l.towards}</b>
                 <span>Board at {l.from.name}{l.from.letter ? ` (Stop ${l.from.letter})` : ''}</span>
+                <OperatorLine line={l.line} />
                 {i === firstBus && typeof liveEta === 'number'
                   ? <span className="livewait"><LiveIcon /> Next {isTram(l.line) ? 'tram' : l.line} {liveEta < 60 ? 'due now' : `in ${Math.floor(liveEta / 60)} min`}</span>
                   : <span className="muted">Every {l.everyMin} min{l.waitMin ? <><span className="dot" />allow {l.waitMin} min to wait</> : ''}</span>}
@@ -496,9 +503,6 @@ export function JourneyScreen({ data, pos, to: initialTo, plan }: { data: Data; 
   const swap = () => setPoints((ps) => [{ ...ps[1], stay: 0 }, { place: ps[0].place ?? (startPos ? { name: 'Your location', lat: startPos.lat, lon: startPos.lon } : null), stay: 0 }]);
   const nameOf = (i: number) => (points[i].place ? points[i].place!.name : 'Your location');
 
-  if (picking) {
-    return <PlacePicker data={data} title={picking.insert ? 'Add a stop on the way' : picking.index === 0 ? 'Start from' : 'Go to'} allowMe={!picking.insert && picking.index === 0} onPick={pick} onClose={() => setPicking(null)} />;
-  }
 
   const orderChanged = result?.optimised && result.order.some((v, i) => v !== i);
   const firstJourney = result?.segments[0]?.journeys[sel[0] ?? 0];
@@ -520,6 +524,10 @@ export function JourneyScreen({ data, pos, to: initialTo, plan }: { data: Data; 
     setSaving(false);
     setSavedNote(`Saved “${title}”${remind ? `, with a reminder ${remind} min before you leave` : ''}.`);
   };
+  // (after every hook: an early return above them breaks React's hook order)
+  if (picking) {
+    return <PlacePicker data={data} title={picking.insert ? 'Add a stop on the way' : picking.index === 0 ? 'Start from' : 'Go to'} allowMe={!picking.insert && picking.index === 0} onPick={pick} onClose={() => setPicking(null)} />;
+  }
   return (
     <>
       <div className="shead">
