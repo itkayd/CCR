@@ -23,10 +23,12 @@ jobs:
       - run: npm run data
         env:
           TFL_APP_KEY: ${{ secrets.TFL_APP_KEY }}
+      - name: Check the new data before committing it
+        run: npm test
       - name: Commit updated data
         run: |
           git config user.name "busline-bot"
           git config user.email "busline-bot@users.noreply.github.com"
-          git add public/data scripts/majors.list.json
+          git add public/data scripts/majors.list.json scripts/colour-report.txt
           git diff --cached --quiet || git commit -m "Weekly TfL bus data refresh"
           git push

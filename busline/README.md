@@ -27,3 +27,8 @@ npm run data:build    # rebuild from cache only
 ```json
 { "add": ["hub-id"], "remove": ["hub-id"], "colours": { "hub-id": "#AA3311" } }
 ```
+
+### Operators (who runs each route)
+TfL's API doesn't publish operators.
+- `scripts/operators.ts` reads Wikipedia's *List of bus routes in London* (CC BY-SA 4.0). If the download fails or looks partial, the previous file is kept.
+- `scripts/tnds.ts` reads the official Traveline National Dataset. Register for free TNDS access, download and unzip the London `L.zip`, then run `TNDS_DIR=/path/to/L npx tsx scripts/tnds.ts`. TNDS wins wherever both sources cover a route. Disagreements are written to `scripts/operators-diff.txt`.

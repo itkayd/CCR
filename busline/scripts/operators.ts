@@ -51,9 +51,14 @@ async function main() {
   const j = file ? JSON.parse((await import('node:fs')).readFileSync(file, 'utf8'))
     : await (await fetch(URL_, { headers: { 'User-Agent': 'busline-london/0.3 (open data pipeline)' } })).json();
   const routes = parse(j.parse?.wikitext ?? '');
+  // never replace good data with a failed or partial download (rate limit, page vandalism…)
+  if (Object.keys(routes).length < 500) {
+    console.warn(`operators: only ${Object.keys(routes).length} routes parsed; keeping the previous operators.json`);
+    return;
+  }
   writeFileSync(OUT, JSON.stringify({ generatedAt: new Date().toISOString(), source: 'Wikipedia: List of bus routes in London (CC BY-SA 4.0)', routes }));
   const counts = new Map<string, number>();
   for (const o of Object.values(routes)) counts.set(o, (counts.get(o) ?? 0) + 1);
   console.log(`operators: ${Object.keys(routes).length} routes;`, [...counts].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([o, n]) => `${o} ${n}`).join(', '));
 }
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (import.meta.url === `file://${process.argv[1]}`) main().catch((e) => console.warn(`operators: ${e.message}; keeping the previous operators.json`));
