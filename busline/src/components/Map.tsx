@@ -54,7 +54,7 @@ const RouteLayer = memo(function RouteLayer({ data }: { data: Data }) {
     <>
       <defs>{gradients}</defs>
       <g fill="none" stroke={NEUTRAL} strokeOpacity={0.4} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round">{plain}</g>
-      <g fill="none" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round">{coloured}</g>
+      <g className="routes-coloured" fill="none" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round">{coloured}</g>
     </>
   );
 });

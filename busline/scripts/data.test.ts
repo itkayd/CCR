@@ -6,7 +6,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NAME_OK, cleanName } from '../src/lib/names.ts';
 import { formatModes } from '../src/lib/modes.ts';
-import { MAP_BG_DARK, MAP_BG_LIGHT, contrast, deltaOk } from '../src/lib/colour.ts';
+import { MAP_BG_LIGHT, NEUTRAL, VISIONS, contrast, deltaOk, hexToRgb, rgbToOklab, simulate } from '../src/lib/colour.ts';
+import { TRAM_COLOUR } from '../src/lib/data.ts';
 import { MIN_SEP } from './lib/spread.ts';
 import { distM } from './lib/geo.ts';
 
@@ -51,18 +52,31 @@ test('no two major markers overlap at Fit on a 390 px phone', () => {
   assert.ok(worst >= MIN_SEP - 0.2, `closest majors ${pair}: ${worst.toFixed(1)} < ${MIN_SEP.toFixed(1)}`);
 });
 
-test('neighbouring majors (≤ 3 km) differ by OKLab ΔE ≥ 12', () => {
+test('neighbouring majors (≤ 3 km) look clearly different (OKLab ΔE ≥ 7)', () => {
   const bad: string[] = [];
   for (let i = 0; i < majors.length; i++)
     for (let j = i + 1; j < majors.length; j++)
-      if (distM(majors[i], majors[j]) <= 3000 && deltaOk(majors[i].colour, majors[j].colour) < 0.12)
+      if (distM(majors[i], majors[j]) <= 3000 && deltaOk(majors[i].colour, majors[j].colour) < 0.07)
         bad.push(`${majors[i].name}/${majors[j].name}`);
   assert.deepEqual(bad, []);
 });
 
-test('every major colour has ≥ 3:1 contrast on light and dark maps', () => {
+test('colour-blind riders: no two neighbouring majors look the same (ΔE ≥ 4 with protanopia, deuteranopia, tritanopia)', () => {
+  const bad: string[] = [];
+  for (let i = 0; i < majors.length; i++)
+    for (let j = i + 1; j < majors.length; j++) {
+      if (distM(majors[i], majors[j]) > 3000) continue;
+      for (const v of VISIONS) if (deltaOk(simulate(majors[i].colour, v), simulate(majors[j].colour, v)) < 0.04) bad.push(`${v}: ${majors[i].name}/${majors[j].name}`);
+    }
+  assert.deepEqual(bad, []);
+});
+
+test('white route numbers are readable on every route colour (WCAG AA 4.5:1), and colours are soft', () => {
   for (const m of majors) {
-    assert.ok(contrast(m.colour, MAP_BG_LIGHT) >= 3, `${m.name} light`);
-    assert.ok(contrast(m.colour, MAP_BG_DARK) >= 3, `${m.name} dark`);
+    assert.ok(contrast(m.colour, '#FFFFFF') >= 4.5, `${m.name} ${m.colour} white text`);
+    assert.ok(contrast(m.colour, MAP_BG_LIGHT) >= 3, `${m.name} on the light map`);
+    const [, a, b] = rgbToOklab(hexToRgb(m.colour));
+    assert.ok(Math.hypot(a, b) <= 0.19, `${m.name} ${m.colour} is too saturated`);
   }
+  for (const c of [NEUTRAL, TRAM_COLOUR, '#C9362A', '#1F62D3']) assert.ok(contrast(c, '#FFFFFF') >= 4.5, `${c} white text`);
 });

@@ -8,7 +8,7 @@ import { resolvedTheme, useStore } from '../store/store';
 import type { LatLon, NearbyStop } from './api';
 import { dropBaseBusStops, googleLike, stopIcon } from './googleLike';
 
-const STOP_FALLBACK = '#D93A2B';
+const STOP_FALLBACK = '#C9362A';
 /** naptanId → marker colour, filled when stops.json loads */
 const stopColour = new Map<string, string>();
 const stopHubOf = new Map<string, string>();
@@ -49,6 +49,8 @@ export const PROVIDERS = {
 export type Provider = keyof typeof PROVIDERS;
 const INK = { light: '#16201E', dark: '#E6EEEB' };
 const PAPER = { light: '#FFFFFF', dark: '#18201E' };
+/** Light edge around lines and markers on the dark map, so darker (readable) route colours still stand out. */
+const CASE = { light: '#FFFFFF', dark: '#C9D3CF' };
 
 type FC = GeoJSON.FeatureCollection;
 const fc = (features: GeoJSON.Feature[]): FC => ({ type: 'FeatureCollection', features });
@@ -143,12 +145,17 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
         m.addLayer({ id: 'routes-plain', type: 'line', source: 'routes', filter: ['==', ['get', 'm'], 0],
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: { 'line-color': t === 'dark' ? '#9AA7A3' : '#6F7C78', 'line-opacity': 0.75, 'line-width': width } }, before);
+        if (t === 'dark') {
+          m.addLayer({ id: 'routes-case', type: 'line', source: 'routes', filter: ['==', ['get', 'm'], 1],
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': CASE.dark, 'line-opacity': 0.55, 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 2, 13, 3.4, 16, 5.5, 18, 7.5] } }, before);
+        }
         m.addLayer({ id: 'routes', type: 'line', source: 'routes', filter: ['==', ['get', 'm'], 1],
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: { 'line-color': ['get', 'c'], 'line-opacity': 0.8, 'line-width': width } }, before);
         m.addLayer({ id: 'route-sel-case', type: 'line', source: 'routes', filter: ['==', ['get', 'r'], ''],
           layout: { 'line-cap': 'round', 'line-join': 'round' },
-          paint: { 'line-color': PAPER[t], 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 4, 14, 7, 17, 10] } });
+          paint: { 'line-color': CASE[t], 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 4, 14, 7, 17, 10] } });
         m.addLayer({ id: 'route-sel', type: 'line', source: 'routes', filter: ['==', ['get', 'r'], ''],
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: { 'line-color': ['get', 'c'], 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 2.5, 14, 4.5, 17, 7] } });
@@ -185,7 +192,7 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
           paint: { 'text-color': '#FFFFFF' } });
         // a planned journey: bus legs in route colour, walking legs dashed
         m.addLayer({ id: 'trip-case', type: 'line', source: 'trip', layout: { 'line-cap': 'round', 'line-join': 'round' },
-          paint: { 'line-color': PAPER[t], 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 6, 16, 12] } });
+          paint: { 'line-color': CASE[t], 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 6, 16, 12] } });
         m.addLayer({ id: 'trip-walk', type: 'line', source: 'trip', filter: ['==', ['get', 'mode'], 'walk'], layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: { 'line-color': ['get', 'c'], 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 2.5, 16, 5], 'line-dasharray': [0.1, 1.8] } });
         m.addLayer({ id: 'trip-bus', type: 'line', source: 'trip', filter: ['==', ['get', 'mode'], 'bus'], layout: { 'line-cap': 'round', 'line-join': 'round' },
@@ -204,7 +211,7 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
         m.addLayer({ id: 'majors', type: 'circle', source: 'majors',
           paint: {
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 3.5, 13, 6, 16, 9],
-            'circle-color': ['get', 'c'], 'circle-stroke-color': PAPER[t],
+            'circle-color': ['get', 'c'], 'circle-stroke-color': CASE[t],
             'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 9, 1.5, 16, 3],
           } });
         m.addLayer({ id: 'majors-label', type: 'symbol', source: 'majors', minzoom: 11,
@@ -214,8 +221,8 @@ export function LiveMap({ data, pos, nearby }: { data: Data; pos: LatLon | null;
             'text-radial-offset': 0.9, 'symbol-sort-key': ['-', 0, ['get', 'n']], 'text-optional': true,
           },
           paint: { 'text-color': INK[t], 'text-halo-color': PAPER[t], 'text-halo-width': 1.6 } });
-        m.addLayer({ id: 'me-halo', type: 'circle', source: 'me', paint: { 'circle-radius': 18, 'circle-color': '#2F7CF6', 'circle-opacity': 0.16 } });
-        m.addLayer({ id: 'me', type: 'circle', source: 'me', paint: { 'circle-radius': 7, 'circle-color': '#2F7CF6', 'circle-stroke-color': '#FFFFFF', 'circle-stroke-width': 2.5 } });
+        m.addLayer({ id: 'me-halo', type: 'circle', source: 'me', paint: { 'circle-radius': 18, 'circle-color': '#1F62D3', 'circle-opacity': 0.16 } });
+        m.addLayer({ id: 'me', type: 'circle', source: 'me', paint: { 'circle-radius': 7, 'circle-color': '#1F62D3', 'circle-stroke-color': '#FFFFFF', 'circle-stroke-width': 2.5 } });
         // journey markers (changes, numbered stops, destination) sit on top of everything
         m.moveLayer('trip-points'); m.moveLayer('trip-labels');
       }
@@ -381,5 +388,6 @@ function applySelection(m: MLMap, route: string | null) {
   m.setFilter('route-sel', ['==', ['get', 'r'], sel]);
   m.setFilter('route-sel-case', ['==', ['get', 'r'], sel]);
   m.setPaintProperty('routes', 'line-opacity', route ? 0.12 : 0.8);
+  if (m.getLayer('routes-case')) m.setPaintProperty('routes-case', 'line-opacity', route ? 0.06 : 0.55);
   m.setPaintProperty('routes-plain', 'line-opacity', route ? 0.12 : 0.75);
 }

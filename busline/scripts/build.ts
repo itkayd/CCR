@@ -367,7 +367,7 @@ function main() {
   const usedHubIds = new Set(hubOut.map((h) => h.id));
   // Stop marker colour: the colour of the nearest major station along any route through
   // the stop (by stops travelled). Stops on routes with no major station are red.
-  const STOP_FALLBACK = '#D93A2B';
+  const STOP_FALLBACK = '#C9362A';
   const nearestMajor = new Map<string, { d: number; c: string }>();
   for (const r of routeOut) {
     const majIdx = r.path.map((h, i) => (majorSet.has(h) ? i : -1)).filter((i) => i >= 0);
@@ -402,7 +402,8 @@ function main() {
     console.log(`layout: min major separation ${minMajorSep(ms).toFixed(1)} units (needs ≥ ${MIN_SEP.toFixed(1)} for no overlap at Fit on a ${PHONE_WIDTH_PX} px phone)`);
     console.log(`colour pairs within 3 km: ${colourResult.pairCount}, under ΔE ${colourResult.threshold * 100}: ${colourResult.violations.length}`);
   }
-  console.log(`contrast: min ${colourResult.minContrast.toFixed(2)}:1 vs map backgrounds`);
+console.log(`white route numbers: min ${colourResult.minContrast.toFixed(2)}:1 (need 4.5)`);
+  console.log(`colour-blind (protan/deutan/tritan): min neighbour ΔE ${(colourResult.minCvd * 100).toFixed(1)} (target 7), ${colourResult.cvdViolations.length} pairs under`);
   const byArea = new Map<string, typeof review>();
   for (const m of review) (byArea.get(m.area!) ?? byArea.set(m.area!, []).get(m.area!)!).push(m);
   for (const [area, list] of byArea) {

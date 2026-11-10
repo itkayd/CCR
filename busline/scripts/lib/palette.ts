@@ -1,6 +1,6 @@
 // Area colour families + neighbour-aware assignment for major stations (spec §4).
 import {
-  MAP_BG_DARK, MAP_BG_LIGHT, clampChroma, contrast, hexToRgb, oklabToRgb, rgbToHex, rgbToOklab, type Lab,
+  MAP_BG_LIGHT, VISIONS, clampChroma, contrast, hexToRgb, oklabToRgb, rgbToHex, rgbToOklab, simulate, type Lab,
 } from '../../src/lib/colour.ts';
 
 const labCache = new Map<string, Lab>();
@@ -9,10 +9,17 @@ const lab = (hex: string) => {
   if (!v) { v = rgbToOklab(hexToRgb(hex)); labCache.set(hex, v); }
   return v;
 };
-const deltaOk = (a: string, b: string) => {
+const rawDelta = (a: string, b: string) => {
   const p = lab(a), q = lab(b);
   return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
 };
+const simCache = new Map<string, string[]>();
+const sims = (hex: string) => { let v = simCache.get(hex); if (!v) { v = VISIONS.map((t) => simulate(hex, t)); simCache.set(hex, v); } return v; };
+/** ΔE with colour-blind vision (worst of protanopia, deuteranopia, tritanopia). */
+export const cvdDelta = (a: string, b: string) => { const sa = sims(a), sb = sims(b); return Math.min(...sa.map((x, i) => rawDelta(x, sb[i]))); };
+export const CVD_THRESHOLD = 0.07; // neighbours must differ by ≥ ΔE 7 for colour-blind riders too
+/** Combined distance: normal vision, with colour-blind vision scaled so ΔE 7 there counts as 12 here. */
+const deltaOk = (a: string, b: string) => Math.min(rawDelta(a, b), cvdDelta(a, b) * (0.12 / CVD_THRESHOLD));
 import { bearing, distM, type LatLon } from './geo.ts';
 
 export type Area = 'central' | 'east' | 'north-east' | 'north' | 'north-west' | 'west' | 'south-west' | 'south-east';
@@ -37,6 +44,10 @@ const EXTRA: Partial<Record<Area, Family[]>> = { 'south-east': [{ hues: [215, 25
 export const NEIGHBOUR_M = 3000;
 export const THRESHOLD = 0.12; // OKLab ΔE (×100 = 12) between majors within NEIGHBOUR_M
 const MIN_CONTRAST = 3;
+/** white route numbers on the colour must be readable (WCAG AA text) */
+const MIN_WHITE_TEXT = 4.5;
+/** soft, not neon: cap OKLCH chroma */
+const MAX_CHROMA = 0.18;
 
 export function areaOf(p: LatLon, centre: LatLon, zone1: boolean): Area {
   if (zone1) return 'central';
@@ -54,12 +65,14 @@ function candidates(area: Area): string[] {
   const out = new Set<string>();
   for (const f of [FAMILIES[area], ...(EXTRA[area] ?? [])]) {
     for (let h = f.hues[0]; h <= f.hues[1]; h += f.hues[1] - f.hues[0] > 120 ? 5 : 2.5)
-      for (const L of [0.5, 0.53, 0.56, 0.59, 0.62, 0.65])
-        for (let c = f.chroma[0]; c <= f.chroma[1] + 1e-9; c += f.hues[1] - f.hues[0] > 120 ? 0.04 : 0.02) {
+      // a wide lightness range: lightness is what colour-blind riders can still tell apart
+      for (const L of [0.36, 0.4, 0.44, 0.48, 0.52, 0.56, 0.6])
+        for (let c = Math.min(f.chroma[0], MAX_CHROMA); c <= Math.min(f.chroma[1], MAX_CHROMA) + 1e-9; c += f.hues[1] - f.hues[0] > 120 ? 0.03 : 0.02) {
           const lab = clampChroma(L, c, h);
-          if (Math.hypot(lab[1], lab[2]) < f.chroma[0] - 0.005) continue; // gamut-clipped below the family's chroma floor
+          if (Math.hypot(lab[1], lab[2]) < Math.min(f.chroma[0], MAX_CHROMA) - 0.005) continue; // gamut-clipped below the family's chroma floor
           const hex = rgbToHex(oklabToRgb(lab));
-          if (contrast(hex, MAP_BG_LIGHT) >= MIN_CONTRAST && contrast(hex, MAP_BG_DARK) >= MIN_CONTRAST) out.add(hex);
+          // on the dark map, lines and markers get a light casing, so only light-map contrast is needed here
+          if (contrast(hex, MAP_BG_LIGHT) >= MIN_CONTRAST && contrast(hex, '#FFFFFF') >= MIN_WHITE_TEXT) out.add(hex);
         }
   }
   return [...out];
@@ -107,14 +120,15 @@ export function assignColours(
   const borrowPool = (a: Area) => {
     if (a === 'central') return [];
     const i = RING.indexOf(a);
-    return [RING[(i + 1) % RING.length], RING[(i + RING.length - 1) % RING.length]]
-      .flatMap((n) => pool.get(n) ?? (pool.set(n, candidates(n)), pool.get(n)!));
+    // neighbours round the compass first; any outer family if that still isn't enough
+    const order = [RING[(i + 1) % RING.length], RING[(i + RING.length - 1) % RING.length], ...RING.filter((_, k) => k !== i)];
+    return [...new Set(order)].flatMap((n) => pool.get(n) ?? (pool.set(n, candidates(n)), pool.get(n)!));
   };
   const best = (id: string) => {
     let pick = colours.get(id) ?? pool.get(area.get(id)!)![0], s = colours.has(id) ? score(id, pick) : -Infinity;
     for (const c of pool.get(area.get(id)!)!) { const v = score(id, c); if (v > s) { s = v; pick = c; } }
     if (colours.has(id) && nearestIn(id, pick, colours) < THRESHOLD) {
-      for (const c of borrowPool(area.get(id)!)) { const v = score(id, c) - 0.02; if (v > s) { s = v; pick = c; } }
+      for (const c of borrowPool(area.get(id)!)) { const v = score(id, c) - 0.01; if (v > s) { s = v; pick = c; } }
     }
     return pick;
   };
@@ -124,7 +138,7 @@ export function assignColours(
   for (const m of order) if (!colours.has(m.id)) colours.set(m.id, best(m.id));
 
   // Coordinate descent on the worst stations until nothing improves.
-  for (let round = 0; round < 40; round++) {
+  for (let round = 0; round < 80; round++) {
     const worstFirst = [...majors]
       .filter((m) => !fixed[m.id])
       .sort((a, b) => nearestIn(a.id, colours.get(a.id)!, colours) - nearestIn(b.id, colours.get(b.id)!, colours));
@@ -139,12 +153,14 @@ export function assignColours(
   let minNeighbour = Infinity, worstPair: [string, string] = ['', ''];
   for (const [id, ns] of neighbours)
     for (const n of ns) {
-      const d = deltaOk(colours.get(id)!, colours.get(n)!);
+      const d = rawDelta(colours.get(id)!, colours.get(n)!);
       if (d < minNeighbour) { minNeighbour = d; worstPair = [id, n]; }
     }
-  const minContrast = Math.min(...[...colours.values()].flatMap((c) => [contrast(c, MAP_BG_LIGHT), contrast(c, MAP_BG_DARK)]));
+  const minContrast = Math.min(...[...colours.values()].map((c) => contrast(c, '#FFFFFF')));
+  let minCvd = Infinity; for (const [id, ns] of neighbours) for (const nb of ns) minCvd = Math.min(minCvd, cvdDelta(colours.get(id)!, colours.get(nb)!));
+  const cvdViolations = [...neighbours].flatMap(([id, ns]) => ns.filter((nb) => id < nb && cvdDelta(colours.get(id)!, colours.get(nb)!) < CVD_THRESHOLD).map((nb) => [id, nb]));
   const violations = [...neighbours].flatMap(([id, ns]) =>
-    ns.filter((n) => id < n && deltaOk(colours.get(id)!, colours.get(n)!) < THRESHOLD).map((n) => [id, n]));
+    ns.filter((n) => id < n && rawDelta(colours.get(id)!, colours.get(n)!) < THRESHOLD).map((n) => [id, n]));
   const pairCount = [...neighbours.values()].reduce((t, ns) => t + ns.length, 0) / 2;
 
   /** ΔE×100 from a station to its closest neighbour, under a given colour map. */
@@ -155,5 +171,5 @@ export function assignColours(
     return Number.isFinite(d) ? d * 100 : undefined;
   };
 
-  return { colours, area, zone1, neighbours, minNeighbour, worstPair, minContrast, threshold: THRESHOLD, violations, pairCount, nearest };
+  return { colours, area, zone1, neighbours, minNeighbour, worstPair, minContrast, threshold: THRESHOLD, violations, pairCount, nearest, minCvd, cvdViolations };
 }

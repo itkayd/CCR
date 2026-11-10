@@ -59,6 +59,6 @@ export function routeSort(a: string, b: string) {
 
 /** Trams aren't bus routes: one shared colour and a readable label. */
 export const TRAM_ID = 'TRAM';
-export const TRAM_COLOUR = '#3E8E2B';
+export const TRAM_COLOUR = '#2F7A22';
 export const isTram = (id: string | null | undefined) => (id ?? '').toUpperCase() === TRAM_ID;
 export const lineLabel = (id: string) => (isTram(id) ? 'Tram' : id);

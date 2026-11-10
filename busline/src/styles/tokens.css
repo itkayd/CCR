@@ -126,7 +126,7 @@ button { font: inherit; color: inherit; }
 .close { margin-left: auto; flex: none; }
 
 /* ================= live map (Nearby home) ================= */
-:root { --row: #F1F4F3; --live: #E0A100; --me: #2F7CF6; }
+:root { --row: #F1F4F3; --live: #A86E00; --me: #1F62D3; }
 :root[data-theme="dark"] { --row: #222B29; --live: #F2C14E; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --row: #222B29; --live: #F2C14E; } }
 
@@ -343,7 +343,7 @@ button.cbadge::after { content: ''; position: absolute; inset: -6px -2px; }
 .ftrow b { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ftlabel { font-size: 12px; font-weight: 700; color: var(--muted); width: 34px; flex: none; }
 .ftdot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
-.ftdot.me { background: #2F7CF6; box-shadow: 0 0 0 3px color-mix(in srgb, #2F7CF6 25%, transparent); }
+.ftdot.me { background: #1F62D3; box-shadow: 0 0 0 3px color-mix(in srgb, #1F62D3 25%, transparent); }
 .ftdot.end { background: var(--accent); }
 .frompicker { display: flex; flex-direction: column; min-height: 0; flex: 1; }
 .frompicker .results { padding: 0 12px 24px; overflow-y: auto; }
@@ -366,7 +366,7 @@ button.cbadge::after { content: ''; position: absolute; inset: -6px -2px; }
 .se-row { display: flex; align-items: center; gap: 8px; padding: 0 8px 0 12px; min-height: 54px; position: relative; }
 .se-row + .se-row { border-top: 1px solid var(--rule); }
 .se-mark { width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center; font: 800 12px/1 Overpass, sans-serif; color: #fff; background: var(--accent); }
-.se-row.first .se-mark { width: 12px; height: 12px; margin: 0 5px; background: #2F7CF6; box-shadow: 0 0 0 4px color-mix(in srgb, #2F7CF6 25%, transparent); }
+.se-row.first .se-mark { width: 12px; height: 12px; margin: 0 5px; background: #1F62D3; box-shadow: 0 0 0 4px color-mix(in srgb, #1F62D3 25%, transparent); }
 .se-row.last .se-mark { width: 14px; height: 14px; margin: 0 4px; border-radius: 4px; }
 .se-name { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; background: none; border: 0; padding: 6px 0; cursor: pointer; text-align: left; color: var(--ink); min-height: 44px; justify-content: center; }
 .se-name small { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
@@ -460,11 +460,11 @@ button.cbadge::after { content: ''; position: absolute; inset: -6px -2px; }
 .lt-bar { height: 6px; border-radius: 3px; background: color-mix(in srgb, currentColor 20%, transparent); overflow: hidden; }
 .lt-bar span { display: block; height: 100%; background: currentColor; border-radius: 3px; transition: width .4s; }
 .lt-warn { font-size: 13px; font-weight: 700; color: #FFD58A; }
-.herebar { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 10px 14px; flex: none; border-radius: 14px; border: 0; background: #2F7CF6; color: #fff; text-align: left; cursor: pointer; }
+.herebar { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 10px 14px; flex: none; border-radius: 14px; border: 0; background: #1F62D3; color: #fff; text-align: left; cursor: pointer; }
 .herebar span { display: flex; flex-direction: column; }
 .herebar small { opacity: .9; }
-.tl.here .tl-dot { box-shadow: 0 0 0 4px color-mix(in srgb, #2F7CF6 45%, transparent); }
-.youhere { font-size: 11px; font-weight: 800; color: #fff; background: #2F7CF6; padding: 1px 7px; border-radius: 999px; }
+.tl.here .tl-dot { box-shadow: 0 0 0 4px color-mix(in srgb, #1F62D3 45%, transparent); }
+.youhere { font-size: 11px; font-weight: 800; color: #fff; background: #1F62D3; padding: 1px 7px; border-radius: 999px; }
 .nbadge.tram, .cbadge.tram { font-family: Overpass, system-ui, sans-serif; font-size: 14px; }
 
 .herebar svg { flex: none; }
@@ -484,3 +484,7 @@ button.busnow { border: 0; cursor: pointer; font: inherit; font-size: 12px; font
 .tl-eta { display: flex; flex-direction: column; align-items: flex-end; flex: none; }
 .tl-eta b { font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; }
 .tl-eta small { font: 700 11px 'Overpass Mono', monospace; color: var(--muted); }
+
+/* Schematic, dark: a soft light edge so darker route colours stay visible */
+:root[data-theme="dark"] .mapwrap .routes-coloured { filter: drop-shadow(0 0 0.6px rgba(201,211,207,.85)); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mapwrap .routes-coloured { filter: drop-shadow(0 0 0.6px rgba(201,211,207,.85)); } }

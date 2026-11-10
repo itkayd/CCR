@@ -1,1 +1,81 @@
 Colour changes (previous build → this build); ΔE = OKLab ×100 to closest neighbour within 3 km
+  Z1 #BB4271 → #A13B85   ΔE   7.2 →   7.0   Tottenham Court Road
+  Z1 #933861 → #884360   ΔE   8.5 →   7.9   Lambeth North
+     #AC1E00 → #54167C   ΔE  26.3 →  20.0   Lewisham
+  Z1 #56206B → #52226F   ΔE   8.5 →   8.0   Oxford Circus
+     #9F5022 → #A16336   ΔE  24.9 →  26.4   East Croydon
+  Z1 #812E63 → #8D1C5F   ΔE   7.4 →   7.9   Marble Arch
+     #12415E → #00435B   ΔE  24.9 →  26.4   West Croydon
+     #007EB0 → #5B72AF   ΔE  21.4 →  18.0   Kingston
+     #59798F → #1156C1   ΔE  17.7 →  26.7   Stratford
+  Z1 #12308F → #202D8F   ΔE   9.1 →   8.5   Piccadilly Circus
+     #602A25 → #68231B   ΔE  19.3 →  20.4   Peckham Rye
+     #215605 → #1A4824   ΔE  21.3 →  22.3   Harrow Bus Station
+     #8B40B1 → #006FAA   ΔE  18.7 →  27.4   Ilford
+  Z1 #6D6E00 → #816500   ΔE   9.3 →   8.8   Liverpool Street
+     #26541C → #007CB7   ΔE  15.0 →  13.1   Holloway / Nags Head
+     #455C13 → #833C88   ΔE  13.2 →  14.5   Hammersmith
+  Z1 #7B4200 → #734700   ΔE   7.6 →   7.4   City Thameslink
+     #7B47BF → #8459C3   ΔE  18.7 →  19.3   New Cross Gate
+     #700048 → #542467   ΔE  23.9 →  22.1   Walthamstow Bus Station
+     #8E4997 → #256A63   ΔE   9.2 →   9.3   Camden Town
+     #376DDC → #4669DC   ΔE  20.5 →  20.8   Streatham
+     #005636 → #1F533A   ΔE     — →     —   Ealing Broadway
+     #005A7E → #005C75   ΔE  13.3 →  13.9   Clapham Junction
+  Z1 #52187E → #492676   ΔE   9.8 →   8.7   Angel
+     #648027 → #707B43   ΔE  20.8 →  20.2   Golders Green
+     #3A7759 → #176400   ΔE     — →     —   Edgware
+  Z1 #A32749 → #8D4446   ΔE   8.1 →   7.8   Baker Street
+     #873616 → #602A25   ΔE  23.7 →  25.7   Bromley South
+     #097689 → #9E511E   ΔE  27.3 →  27.2   Catford
+     #4E8166 → #757A37   ΔE  12.3 →  18.8   Shepherd's Bush
+     #62359C → #003F9D   ΔE  12.6 →  13.7   Finsbury Park
+     #820054 → #7E3261   ΔE  15.1 →  14.5   Hackney Central
+     #9B4BBB → #4F66A3   ΔE  12.9 →  13.7   Turnpike Lane
+  Z1 #67222C → #740033   ΔE  11.0 →  12.8   Shoreditch High Street
+     #506EC6 → #3A74C5   ΔE  14.3 →  14.5   Putney Bridge
+     #005F61 → #1D5A70   ΔE     — →     —   Richmond
+     #7F6438 → #5C4215   ΔE  15.0 →  22.9   Archway
+     #826144 → #3D556D   ΔE     — →     —   Orpington
+     #3C4110 → #800953   ΔE   7.6 →   7.5   St Pancras International
+     #556797 → #225F9F   ΔE     — →     —   Sutton
+     #1F3A71 → #233971   ΔE  18.0 →  18.0   Morden
+     #007D51 → #177C52   ΔE     — →     —   Uxbridge
+     #95694C → #96684F   ΔE   8.1 →   9.3   Mornington Crescent
+  Z1 #674F8D → #79438F   ΔE   9.0 →   9.8   Sloane Square
+     #7B2432 → #6F1A11   ΔE  16.5 →  20.1   Canning Town
+     #552F86 → #0066C8   ΔE  25.3 →  30.7   Plumstead
+     #275582 → #6C4B17   ΔE     — →     —   Purley
+  Z1 #3C349A → #3A248B   ΔE  11.7 →  14.5   Notting Hill Gate
+     #126686 → #971B19   ΔE  12.3 →  15.4   White City
+     #BC3A83 → #547E74   ΔE  12.2 →  16.2   Dalston Junction
+     #446754 → #416758   ΔE     — →     —   Wembley Central
+     #641B4E → #700048   ΔE  18.7 →  27.4   Gants Hill
+  Z1 #901A57 → #A52836   ΔE  10.0 →   8.8   Old Street
+     #0D2C99 → #172A99   ΔE  13.3 →  13.9   Clapham Common
+     #514900 → #4B4B00   ΔE  18.7 →  17.5   Seven Sisters
+     #681053 → #631C50   ΔE  13.1 →  17.3   Stamford Hill
+     #004931 → #1F490C   ΔE  14.2 →  12.7   Cricklewood
+     #8B0008 → #AC1E00   ΔE  24.1 →  29.7   Barking
+     #004166 → #014069   ΔE  18.2 →  18.5   Tulse Hill
+  Z1 #5F0D6F → #465EC4   ΔE  10.5 →  12.2   High Street Kensington
+     #785715 → #845000   ΔE     — →     —   High Barnet
+     #C0453C → #C04255   ΔE  16.7 →  20.7   North Greenwich
+     #457271 → #5A7E6C   ΔE     — →     —   Hayes & Harlington
+     #A26239 → #9E000B   ΔE  22.6 →  26.0   Wandsworth Town
+     #894C06 → #0C6F4D   ΔE  12.6 →  12.7   Kilburn High Road
+     #3F6375 → #B33F99   ΔE  14.2 →  14.8   Kilburn Park
+     #6F1A11 → #8B0008   ΔE  20.7 →  16.7   Mile End
+     #831A17 → #7B2813   ΔE  16.8 →  17.8   Beckton
+     #8560AC → #8A52CA   ΔE  12.5 →  14.4   Stoke Newington
+     #C04255 → #AF535D   ΔE  16.5 →  16.7   Bow Church
+     #19434E → #1D4252   ΔE  12.8 →  15.4   Ravenscourt Park
+     #1A4824 → #004931   ΔE  20.8 →  21.0   Hendon Central
+     #276779 → #00697B   ΔE  18.7 →  19.1   Queens Road Peckham
+     #003D74 → #003980   ΔE  20.4 →  20.1   Putney
+     #A11D6C → #AD2D7C   ΔE  13.1 →  13.7   Manor House
+     #8459C3 → #B73D91   ΔE  23.9 →  22.1   Leytonstone
+     #B93004 → #9C0031   ΔE  26.5 →  31.2   Abbey Wood
+     #4F0E8A → #520B88   ΔE  15.1 →  14.5   Homerton
+  Z1 #63417B → #6D3783   ΔE   7.4 →   8.0   Goodge Street
+     #1E3385 → #1F37A6   ΔE  21.4 →  18.0   Surbiton
