@@ -1,6 +1,6 @@
 // GET /api/timetable?line=60&stop=490007670N&d=2026-11-06
 // → today's scheduled departures from that stop (minutes after midnight, London time).
-import { json, tfl } from './_tfl.js';
+import { failStatus, json, tfl } from './_tfl.js';
 
 interface Journey { hour: string; minute: string }
 interface Schedule { name: string; knownJourneys: Journey[] }
@@ -35,7 +35,8 @@ export async function GET(request: Request): Promise<Response> {
   // weekday in London (the client passes its date so the edge cache splits by day)
   const now = new Date();
   const londonDow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/London' })).getDay();
-  const dow = q.get('d') ? new Date(`${q.get('d')}T12:00:00Z`).getUTCDay() : londonDow;
+  const d = q.get('d') ?? '';
+  const dow = /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(d)) ? new Date(`${d}T12:00:00Z`).getUTCDay() : londonDow;
   try {
     const t = await tfl<Timetable>(`/Line/${line}/Timetable/${stop}`);
     const schedules = t.timetable?.routes?.flatMap((r) => r.schedules) ?? [];
@@ -45,6 +46,6 @@ export async function GET(request: Request): Promise<Response> {
     res.headers.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=600');
     return res;
   } catch (e) {
-    return json({ error: String((e as Error).message), times: [] }, 502);
+    return json({ error: String((e as Error).message), times: [] }, failStatus(e));
   }
 }

@@ -33,7 +33,7 @@ for (const [name, a, b, maxMin] of TRIPS) {
           at = l.alight;
         } else { if (at !== undefined && l.from.stop !== undefined) assert.equal(l.from.stop, at); at = l.to.stop; }
       }
-      assert.ok(p.rides <= 4);
+      assert.ok(p.rides <= 6);
     }
   });
 }

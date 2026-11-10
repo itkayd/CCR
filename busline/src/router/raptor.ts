@@ -85,7 +85,8 @@ export class Router {
   plan(from: { lat: number; lon: number; name?: string }, to: { lat: number; lon: number; name?: string }, o: PlanOptions): Plan[] {
     const { stops, patterns } = this.net;
     const n = stops.id.length;
-    const walk = o.walkSpeed ?? 1.3, maxRides = o.maxRides ?? 4, access = o.maxAccessM ?? 800;
+    // outer-London cross trips can need 5-6 buses
+    const walk = o.walkSpeed ?? 1.3, maxRides = o.maxRides ?? 6, access = o.maxAccessM ?? 800;
     const TRANSFER_PENALTY = 90; // s, getting off and finding the next stop
     const night = o.clock < 5 * 3600 || o.clock > 24 * 3600 - 1800;
     // how often each pattern runs at this day and time (0 = not running)
@@ -154,7 +155,11 @@ export class Router {
       }
       // transfers on foot from stops reached by bus this round
       marked = new Set(improved);
-      for (const s of improved) for (const { to: x, m } of this.foot[s]) {
+      // walk only from where you got off a bus (never chain walk → walk → walk),
+      // earliest arrivals first so the best sources win
+      const sources = [...improved].sort((u, v) => A[u] - A[v]);
+      for (const s of sources) for (const { to: x, m } of this.foot[s]) {
+        if (ptype[k][s] !== 2) break;
         const t = A[s] + m / walk;
         if (t < A[x] && t < best[x]) { A[x] = t; best[x] = t; ptype[k][x] = 3; pa[k][x] = s; pb[k][x] = Math.round(m); marked.add(x); }
       }
@@ -226,7 +231,21 @@ export class Router {
       break;
     }
     legs.reverse();
-    const merged = legs.filter((l) => !(l.mode === 'walk' && l.metres < 15));
+    // merge back-to-back walks into one; drop walks under 15 m only when they connect
+    // nothing (a change across the same stop pole keeps the bus legs adjacent)
+    const merged: Leg[] = [];
+    for (const l of legs) {
+      const prev = merged[merged.length - 1];
+      if (l.mode === 'walk' && prev?.mode === 'walk') {
+        merged[merged.length - 1] = { ...prev, to: l.to, seconds: prev.seconds + l.seconds, metres: prev.metres + l.metres };
+        continue;
+      }
+      if (l.mode === 'walk' && l.metres < 15 && prev?.mode === 'bus') {
+        // tiny hop between two stop poles: treat as changing at the same stop
+        continue;
+      }
+      merged.push(l);
+    }
     return {
       seconds: total,
       rides: merged.filter((l) => l.mode === 'bus').length,
@@ -239,7 +258,7 @@ export class Router {
 // ---------------------------------------------------------------- multi-stop trips
 export interface TourPoint { lat: number; lon: number; name?: string }
 export interface TourSegment { from: number; to: number; plans: Plan[]; start: number }
-export interface Tour { order: number[]; segments: TourSegment[]; seconds: number; optimised: boolean; tried: number }
+export interface Tour { order: number[]; segments: TourSegment[]; seconds: number; optimised: boolean; tried: number; /** a part of the trip had no bus journey */ incomplete?: boolean }
 
 /**
  * Plan start → stops → destination. `dwell[i]` is how long you stay at point i (s).
@@ -262,9 +281,15 @@ export function planTour(router: Router, points: TourPoint[], dwell: number[], o
     }
     const cost = (ord: number[]) => ord.slice(1).reduce((t, p, i) => t + T[ord[i]][p], 0);
     let bestOrd = order, bestCost = cost(order);
+    // shortlist of the cheapest orders by the start-time matrix, re-checked below with real clock times
+    const shortlist: { ord: number[]; c: number }[] = [];
+    const keep = (ord: number[], c: number) => {
+      if (!Number.isFinite(c)) return;
+      shortlist.push({ ord, c }); shortlist.sort((x, y) => x.c - y.c); if (shortlist.length > 4) shortlist.pop();
+    };
     if (mids.length <= 6) {
       const permute = (arr: number[], k: number) => {
-        if (k === arr.length) { tried++; const ord = [0, ...arr, n - 1], c = cost(ord); if (c < bestCost) { bestCost = c; bestOrd = ord; } return; }
+        if (k === arr.length) { tried++; const ord = [0, ...arr, n - 1], c = cost(ord); keep(ord, c); if (c < bestCost) { bestCost = c; bestOrd = ord; } return; }
         for (let i = k; i < arr.length; i++) { [arr[k], arr[i]] = [arr[i], arr[k]]; permute(arr, k + 1); [arr[k], arr[i]] = [arr[i], arr[k]]; }
       };
       permute(mids.slice(), 0);
@@ -283,8 +308,31 @@ export function planTour(router: Router, points: TourPoint[], dwell: number[], o
         }
       }
       bestOrd = ord;
+      keep(ord, cost(ord));
     }
-    order = bestOrd;
+    // Times change through the day (fewer buses in the evening, none at some hours), so
+    // simulate each shortlisted order — and the order you gave — with the clock moving on,
+    // and keep the truly quickest. The result can never be slower than your own order.
+    const simulate = (ord: number[]) => {
+      let t = 0;
+      for (let i = 0; i < ord.length - 1; i++) {
+        const abs = o.clock + t;
+        const day = o.day === undefined ? undefined : (o.day + Math.floor(abs / 86400)) % 7;
+        const best = router.plan(points[ord[i]], points[ord[i + 1]], { ...o, clock: abs % 86400, day })[0];
+        if (!best) return Infinity;
+        t += best.seconds + (i + 1 < ord.length - 1 ? dwell[ord[i + 1]] ?? 0 : 0);
+      }
+      return t;
+    };
+    const given = [0, ...mids, n - 1];
+    let pick = given, pickT = simulate(given);
+    for (const { ord } of shortlist) {
+      if (ord.join() === given.join()) continue;
+      const t = simulate(ord);
+      if (t < pickT - 60) { pick = ord; pickT = t; }
+    }
+    void bestOrd;
+    order = pick;
   }
   // full plans (with alternatives) for each leg of the chosen order, advancing the clock
   const segments: TourSegment[] = [];
@@ -298,7 +346,7 @@ export function planTour(router: Router, points: TourPoint[], dwell: number[], o
     segments.push({ from: a, to: b, plans, start: t });
     t += (plans[0]?.seconds ?? 0) + (i + 1 < order.length - 1 ? dwell[b] ?? 0 : 0);
   }
-  return { order, segments, seconds: t, optimised: !!o.optimise && mids.length >= 2, tried };
+  return { order, segments, seconds: t, optimised: !!o.optimise && mids.length >= 2, tried, incomplete: segments.some((sg) => !sg.plans.length) };
 }
 
 /** Arrive by `target` (clock seconds): work backwards to the latest departure that makes it. */

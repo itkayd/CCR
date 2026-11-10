@@ -7,7 +7,7 @@ export async function tfl<T>(path: string, params: Record<string, string> = {}, 
   const key = process.env.TFL_APP_KEY;
   if (key) url.searchParams.set('app_key', key);
   const res = await fetch(url, { headers: { 'User-Agent': 'busline-london/0.2' }, signal: AbortSignal.timeout(timeoutMs) });
-  if (!res.ok) throw new Error(`TfL ${res.status}`);
+  if (!res.ok) throw Object.assign(new Error(`TfL ${res.status}`), { status: res.status });
   return res.json() as Promise<T>;
 }
 
@@ -21,6 +21,9 @@ export function json(body: unknown, status = 200): Response {
     },
   });
 }
+
+/** Map a TfL failure to our status: TfL 404 → 404 (unknown route/bus/stop), else 502. */
+export const failStatus = (e: unknown) => ((e as { status?: number }).status === 404 ? 404 : (e as { status?: number }).status === 400 ? 400 : 502);
 
 export const clean = (s: string | undefined) =>
   (s ?? '').replace(/\bSt\./g, 'St').replace(/\s+/g, ' ').replace(/^[^\p{L}\p{N}]+/u, '').replace(/[^\p{L}\p{N})]+$/u, '').trim();

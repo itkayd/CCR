@@ -1,5 +1,5 @@
 // GET /api/vehicle?id=LF73DYA → one bus's live progress: every stop it still has to call at.
-import { clean, json, tfl } from './_tfl.js';
+import { clean, failStatus, json, tfl } from './_tfl.js';
 import { cached } from './_cache.js';
 
 interface TflArrival { naptanId: string; stationName: string; lineName: string; destinationName: string; timeToStation: number; direction: string; platformName?: string }
@@ -16,6 +16,6 @@ export async function GET(request: Request): Promise<Response> {
     const first = all[0];
     return json({ vehicle: id, line: first?.lineName?.toUpperCase() ?? null, dest: clean(first?.destinationName), dir: first?.direction ?? null, generatedAt: new Date().toISOString(), stops });
   } catch (e) {
-    return json({ error: String((e as Error).message), stops: [] }, 502);
+    return json({ error: String((e as Error).message), stops: [] }, failStatus(e));
   }
 }

@@ -1,5 +1,5 @@
 // GET /api/line?id=25  → live buses on a route: for each vehicle, the next stop it reaches.
-import { clean, json, tfl } from './_tfl.js';
+import { clean, failStatus, json, tfl } from './_tfl.js';
 import { cached } from './_cache.js';
 
 interface TflArrival { vehicleId: string; naptanId: string; direction: string; destinationName: string; timeToStation: number; stationName: string }
@@ -19,6 +19,6 @@ export async function GET(request: Request): Promise<Response> {
     }));
     return json({ id: id.toUpperCase(), generatedAt: new Date().toISOString(), vehicles });
   } catch (e) {
-    return json({ error: String((e as Error).message) }, 502);
+    return json({ error: String((e as Error).message) }, failStatus(e));
   }
 }

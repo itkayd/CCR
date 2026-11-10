@@ -400,7 +400,7 @@ const MAX_STOPS = 6;
 
 const planNext = (p: SavedPlan) => nextOccurrence(p) ?? Date.now();
 
-interface Result { order: number[]; optimised: boolean; tried: number; totalMin: number; arrive: Date; segments: { from: number; to: number; journeys: UJourney[] }[] }
+interface Result { incomplete?: boolean; order: number[]; optimised: boolean; tried: number; totalMin: number; arrive: Date; segments: { from: number; to: number; journeys: UJourney[] }[] }
 
 export function JourneyScreen({ data, pos, to: initialTo, plan }: { data: Data; pos: LatLon | null; to: Place; plan?: SavedPlan }) {
   const { back, setSearching, setTrip } = useStore();
@@ -471,7 +471,7 @@ export function JourneyScreen({ data, pos, to: initialTo, plan }: { data: Data; 
         const now = at + (res.departOffset ?? 0) * 1000; // departure time
         setDepartAt(now);
         const segs = res.tour.segments.map((s) => ({ from: s.from, to: s.to, journeys: s.plans.map((p) => toUi(p, res.stops!, now + s.start * 1000)) }));
-        setResult({ order: res.tour.order, optimised: res.tour.optimised, tried: res.tour.tried, totalMin: Math.round(res.tour.seconds / 60), arrive: new Date(now + res.tour.seconds * 1000), segments: segs });
+        setResult({ incomplete: res.tour.incomplete, order: res.tour.order, optimised: res.tour.optimised, tried: res.tour.tried, totalMin: Math.round(res.tour.seconds / 60), arrive: new Date(now + res.tour.seconds * 1000), segments: segs });
         setSel(segs.map(() => 0));
       })
       .catch((e) => live && setError(String(e.message ?? e)))
@@ -592,6 +592,7 @@ export function JourneyScreen({ data, pos, to: initialTo, plan }: { data: Data; 
 
         {result && vias > 0 && (
           <section className="tripsum">
+            {result.incomplete && <div className="issuechip">Part of this trip has no bus at that time, so the total is missing that part</div>}
             <div><b>{result.totalMin}</b> min in total<span className="dot" />arrive {time(result.arrive)}</div>
             <div className="muted">Includes {points.slice(1, -1).reduce((t, p) => t + p.stay, 0)} min at your stops
               {orderChanged ? <><span className="dot" />reordered for the quickest trip</> : result.optimised ? <><span className="dot" />your order is already the quickest</> : ''}
